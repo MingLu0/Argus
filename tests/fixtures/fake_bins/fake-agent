@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+import sys
+
+prompt = sys.stdin.read()
+role_line = next((line for line in prompt.splitlines() if line.startswith("Role:")), "Role: unknown")
+role = role_line.split(":", 1)[1].strip()
+print(f"# Fake Review: {role}")
+print()
+print("## Recommendation")
+print("approve")
+print()
+print("## Risk")
+print("low")
+print()
+print("## Major Concerns")
+print("- None in fake backend output.")

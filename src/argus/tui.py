@@ -12,6 +12,7 @@ from textual.widgets import Footer, Header, Static
 
 from argus.db import database_path, reconstruct_run
 from argus.decisions import DecisionAction, apply_decision
+from argus.followup import run_follow_up_review
 from argus.models import RunManifest, RunStatus
 
 
@@ -89,12 +90,15 @@ class ArgusTuiApp(App[None]):
             choice=choice,
         )
 
-    def action_request_more_review(self) -> None:
+    async def action_request_more_review(self) -> None:
         self._cancel_abort_confirmation()
-        self._apply_gate_decision(
+        decision_applied = self._apply_gate_decision(
             DecisionAction.REQUEST_MORE_REVIEW,
             "Follow-up review requested from TUI.",
         )
+        if decision_applied and self.run_id is not None:
+            await run_follow_up_review(project_root=self.project_root, run_id=self.run_id)
+            self.refresh_run()
 
     def action_defer(self) -> None:
         self._cancel_abort_confirmation()
@@ -145,14 +149,14 @@ class ArgusTuiApp(App[None]):
         action: DecisionAction,
         note: str,
         choice: str = "",
-    ) -> None:
+    ) -> bool:
         if not self.run_id:
-            return
+            return False
         state = self._current_state()
         if state is None:
-            return
+            return False
         if state.manifest.status != RunStatus.AWAITING_DECISION:
-            return
+            return False
         apply_decision(
             project_root=self.project_root,
             run_id=self.run_id,
@@ -162,6 +166,7 @@ class ArgusTuiApp(App[None]):
         )
         self.abort_confirmation_requested = False
         self.refresh_run()
+        return True
 
     def _current_state(self) -> TuiState | None:
         if not self.run_id:

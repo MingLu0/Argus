@@ -10,6 +10,7 @@ from argus.backends.discovery import discover_backends
 from argus.config import load_config
 from argus.decisions import DecisionAction, apply_decision, render_run_show
 from argus.executor.run import run_discussion
+from argus.followup import run_follow_up_review
 from argus.modes import supported_modes
 from argus.tui import ArgusTuiApp
 
@@ -122,6 +123,13 @@ def respond(
             note=note,
             choice=choice,
         )
+        if action == DecisionAction.REQUEST_MORE_REVIEW:
+            manifest = asyncio.run(
+                run_follow_up_review(
+                    project_root=project_root,
+                    run_id=run_id,
+                )
+            )
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="run_id") from exc
     typer.echo(f"run: {manifest.id}")

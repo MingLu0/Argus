@@ -45,13 +45,15 @@ Each run writes to `.argus/runs/<run-id>/`:
 - `synthesis.md`, `run-summary.md`, `recommendation.md` — synthesized output, per-reviewer status summary, and the final recommendation with decision matrix, readiness, risk, conflicts, and reviewer status.
 - `open-questions.md` / `next-actions.md` — extracted follow-up questions and actions from structured reviews and gates.
 - `findings.json` — consolidated structured findings across reviewers; each entry carries a namespaced `id`, `reviewer_id`, `severity`, `action`, `claim`, `evidence`, `confidence`, and `affected_decision`.
-- `conflicts.json` — cross-reviewer disagreement grouped by `affected_decision`. Each conflict carries an `id` (e.g. `conflict-database`), `affected_decision`, `risk_level` (`low`/`medium`/`high`), `status` (`unresolved` or `non_conflicting`), `rationale`, and one `position` per contributing finding (with `reviewer_id`, `finding_id`, `claim`, `action`, `severity`, `confidence`, and `evidence`). Findings with the default `affected_decision` are not bucketed across reviewers, and reviewer disagreement is only marked `unresolved` when at least one position carries an `ask-user` or `block` action.
+- `conflicts.json` — cross-reviewer disagreement grouped by `affected_decision`. Each conflict carries an `id` (e.g. `conflict-database`, with numeric suffixes for slug collisions), `affected_decision`, `risk_level` (`low`/`medium`/`high`), `status` (`unresolved` or `non_conflicting`), `rationale`, and one `position` per contributing finding (with `reviewer_id`, `finding_id`, `claim`, `action`, `severity`, `confidence`, and `evidence`). Findings with the default `affected_decision` are not bucketed across reviewers, and reviewer disagreement is only marked `unresolved` when at least one position carries an `ask-user` or `block` action.
 - `decision-gate.yaml` — written only when human decision is required. Records `required`, the aggregated `risk_level`, the deduplicated `reasons` that triggered the gate, the `conflict_ids` and `finding_ids` referenced by those reasons, and the `successful_reviewers` / `minimum_successful_reviewers` counts. A gate is required when there are too few successful reviewers, any reviewer reported `risk_level: high` or a parse error, any finding has an `ask-user` or `block` action, or any conflict is unresolved or high-risk. When the gate is required, `run.yaml` status is set to `awaiting_decision`; otherwise the run completes.
 - `decision.md` — written by `argus respond` with the selected action, decision timestamp, optional choice, and optional note.
 
+Argus also maintains `.argus/argus.db`, a SQLite state store initialized on demand. Each completed `argus run` and each `argus respond` upserts the run manifest plus steps, backend availability, reviewer records, findings, conflicts, decisions, artifacts, and events into tables tracked by `schema_migrations`.
+
 Reviewers are prompted to emit a single JSON object (optionally inside a ```json fenced block). When the output cannot be parsed, the per-reviewer `.parsed.json` records a `parse_error` and `findings.json` simply omits that reviewer's findings.
 
-The first milestone uses file artifacts under `.argus/runs/`. SQLite and the TUI come later.
+The file artifacts under `.argus/runs/` remain the human-readable record; SQLite mirrors the same run state for reconstruction and future UI/query workflows.
 
 ## Development
 

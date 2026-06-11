@@ -19,6 +19,7 @@ def group_conflicts(reviews: list[ReviewResult]) -> list[Conflict]:
             bucket_decision.setdefault(bucket, affected_decision)
 
     conflicts: list[Conflict] = []
+    used_conflict_ids: set[str] = set()
     for bucket, entries in sorted(findings_by_bucket.items()):
         if not entries:
             continue
@@ -37,9 +38,10 @@ def group_conflicts(reviews: list[ReviewResult]) -> list[Conflict]:
         ]
         status = _conflict_status(positions)
         risk_level = _risk_level(entries, status)
+        conflict_id = _unique_conflict_id(f"conflict-{_slugify(bucket)}", used_conflict_ids)
         conflicts.append(
             Conflict(
-                id=f"conflict-{_slugify(bucket)}",
+                id=conflict_id,
                 affected_decision=affected_decision,
                 risk_level=risk_level,
                 status=status,
@@ -106,3 +108,15 @@ def _rationale(
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "general"
+
+
+def _unique_conflict_id(conflict_id: str, used_conflict_ids: set[str]) -> str:
+    if conflict_id not in used_conflict_ids:
+        used_conflict_ids.add(conflict_id)
+        return conflict_id
+    suffix = 2
+    while f"{conflict_id}-{suffix}" in used_conflict_ids:
+        suffix += 1
+    unique_conflict_id = f"{conflict_id}-{suffix}"
+    used_conflict_ids.add(unique_conflict_id)
+    return unique_conflict_id

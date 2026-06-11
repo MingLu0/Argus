@@ -46,6 +46,25 @@ class BackendResult(BaseModel):
     timed_out: bool = False
 
 
+class BackendInvocation(BaseModel):
+    backend_id: str
+    command: list[str]
+    input_text: str
+
+
+class ReviewerRecord(BaseModel):
+    id: str
+    role: str
+    backend: str
+    status: StepStatus = StepStatus.PENDING
+    command: list[str] = Field(default_factory=list)
+    duration_ms: int | None = None
+    exit_code: int | None = None
+    timed_out: bool = False
+    error: str | None = None
+    artifacts: list[str] = Field(default_factory=list)
+
+
 class StepRecord(BaseModel):
     id: str
     name: str

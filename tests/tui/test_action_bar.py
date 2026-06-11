@@ -77,6 +77,25 @@ async def test_tui_can_approve_and_abort_decision_gate(tmp_path: Path) -> None:
     assert abort_manifest["decision_action"] == "abort"
 
 
+async def test_tui_ignores_decision_keys_after_run_completed(tmp_path: Path) -> None:
+    run_id = await _create_conflicting_run(tmp_path)
+    manifest_path = tmp_path / ".argus" / "runs" / run_id / "run.yaml"
+
+    approve_app = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
+    async with approve_app.run_test() as pilot:
+        await pilot.press("a")
+        await pilot.pause()
+    assert yaml.safe_load(manifest_path.read_text())["status"] == "completed"
+
+    abort_app = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
+    async with abort_app.run_test() as pilot:
+        await pilot.press("x")
+        await pilot.pause()
+    completed_manifest = yaml.safe_load(manifest_path.read_text())
+    assert completed_manifest["status"] == "completed"
+    assert completed_manifest["decision_action"] == "approve"
+
+
 async def _create_conflicting_run(project_root: Path) -> str:
     topic = project_root / f"topic-{len(list(project_root.glob('topic-*.md')))}.md"
     topic.write_text("# Database choice\n\nShould we use Postgres or DynamoDB?\n")

@@ -56,24 +56,27 @@ class ArgusTuiApp(App[None]):
         self.refresh_run()
 
     def action_approve(self) -> None:
-        if self.run_id:
-            apply_decision(
-                project_root=self.project_root,
-                run_id=self.run_id,
-                action=DecisionAction.APPROVE,
-                note="Approved from TUI.",
-            )
-            self.refresh_run()
+        self._apply_gate_decision(DecisionAction.APPROVE, "Approved from TUI.")
 
     def action_abort(self) -> None:
-        if self.run_id:
-            apply_decision(
-                project_root=self.project_root,
-                run_id=self.run_id,
-                action=DecisionAction.ABORT,
-                note="Aborted from TUI.",
-            )
-            self.refresh_run()
+        self._apply_gate_decision(DecisionAction.ABORT, "Aborted from TUI.")
+
+    def _apply_gate_decision(self, action: DecisionAction, note: str) -> None:
+        if not self.run_id:
+            return
+        try:
+            state = load_tui_state(self.project_root, self.run_id)
+        except ValueError:
+            return
+        if state.manifest.status != RunStatus.AWAITING_DECISION:
+            return
+        apply_decision(
+            project_root=self.project_root,
+            run_id=self.run_id,
+            action=action,
+            note=note,
+        )
+        self.refresh_run()
 
     def refresh_run(self) -> None:
         try:
@@ -126,7 +129,10 @@ def load_tui_state(project_root: Path, run_id: str) -> TuiState:
     conflicts = _read_json(run_dir / "conflicts.json", [])
     reconstructed = None
     if database_path(project_root).exists():
-        reconstructed = reconstruct_run(project_root, run_id)
+        try:
+            reconstructed = reconstruct_run(project_root, run_id)
+        except ValueError:
+            reconstructed = None
     return TuiState(
         project_root=project_root,
         run_id=run_id,

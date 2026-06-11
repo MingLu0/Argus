@@ -76,6 +76,64 @@ def test_run_with_failed_fake_backend_creates_decision_gate(tmp_path: Path) -> N
     assert "exit code 17" in recommendation
 
 
+def test_run_with_conflicting_fake_backends_creates_conflict_gate(tmp_path: Path) -> None:
+    topic = tmp_path / "topic.md"
+    topic.write_text("# Database choice\n\nShould we use Postgres or DynamoDB?\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(topic),
+            "--mode",
+            "tech-stack",
+            "--backends",
+            "fake-postgres,fake-dynamodb",
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_dir = next((tmp_path / ".argus" / "runs").iterdir())
+    manifest = yaml.safe_load((run_dir / "run.yaml").read_text())
+    conflicts = json.loads((run_dir / "conflicts.json").read_text())
+    decision_gate = yaml.safe_load((run_dir / "decision-gate.yaml").read_text())
+    assert manifest["status"] == "awaiting_decision"
+    assert conflicts[0]["id"] == "conflict-database"
+    assert conflicts[0]["status"] == "unresolved"
+    assert decision_gate["required"] is True
+    assert decision_gate["conflict_ids"] == ["conflict-database"]
+
+
+def test_run_with_high_risk_fake_backend_creates_decision_gate(tmp_path: Path) -> None:
+    topic = tmp_path / "topic.md"
+    topic.write_text("# Risky migration\n\nShould we migrate without rollback details?\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(topic),
+            "--mode",
+            "architecture",
+            "--backends",
+            "fake-high-risk,fake-success",
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_dir = next((tmp_path / ".argus" / "runs").iterdir())
+    manifest = yaml.safe_load((run_dir / "run.yaml").read_text())
+    decision_gate = yaml.safe_load((run_dir / "decision-gate.yaml").read_text())
+    assert manifest["status"] == "awaiting_decision"
+    assert decision_gate["required"] is True
+    assert decision_gate["risk_level"] == "high"
+    assert any("reported high run risk" in reason for reason in decision_gate["reasons"])
+
+
 def test_run_with_timeout_fake_backend_creates_decision_gate(tmp_path: Path) -> None:
     topic = tmp_path / "topic.md"
     topic.write_text("# Slow decision\n\nShould we wait?\n")

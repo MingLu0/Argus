@@ -22,6 +22,7 @@ from argus.backends.selection import (
 )
 from argus.backends.subprocess import run_backend_command
 from argus.config import load_config
+from argus.conflicts import build_decision_gate, group_conflicts
 from argus.findings import ReviewResult, parse_reviewer_output
 from argus.models import ReviewerRecord, RunManifest, RunStatus, StepRecord, StepStatus, utc_now
 from argus.modes import reviewer_specs_for_backends
@@ -166,20 +167,20 @@ async def run_discussion(
     _write_run_summary(run_dir / "run-summary.md", manifest, reviewer_records, successful_reviews)
     _write_recommendation(run_dir / "recommendation.md", synthesis, reviewer_records)
     write_json(run_dir / "findings.json", _consolidated_findings(parsed_reviews))
-    write_json(run_dir / "conflicts.json", [])
+    conflicts = group_conflicts(parsed_reviews)
+    decision_gate = build_decision_gate(
+        reviews=parsed_reviews,
+        conflicts=conflicts,
+        successful_reviewers=successful_reviews,
+        minimum_successful_reviewers=config.backend_policy.minimum_successful_reviewers,
+    )
+    write_json(run_dir / "conflicts.json", conflicts)
 
-    if successful_reviews >= config.backend_policy.minimum_successful_reviewers:
-        manifest.status = RunStatus.COMPLETED
-    else:
+    if decision_gate.required:
         manifest.status = RunStatus.AWAITING_DECISION
-        write_yaml(
-            run_dir / "decision-gate.yaml",
-            {
-                "reason": "too few successful reviewers",
-                "successful_reviewers": successful_reviews,
-                "minimum_successful_reviewers": config.backend_policy.minimum_successful_reviewers,
-            },
-        )
+        write_yaml(run_dir / "decision-gate.yaml", decision_gate)
+    else:
+        manifest.status = RunStatus.COMPLETED
     manifest.updated_at = utc_now()
     write_yaml(run_dir / "run.yaml", manifest)
     append_event(run_dir, {"type": "run_completed", "run_id": run_id, "status": manifest.status})

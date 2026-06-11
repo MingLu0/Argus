@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+import json
+
+print(
+    json.dumps(
+        {
+            "recommendation": "uncertain",
+            "risk_level": "high",
+            "risk_rationale": "The proposal lacks migration and rollback details.",
+            "findings": [],
+            "open_questions": ["What is the rollback plan?"],
+        }
+    )
+)

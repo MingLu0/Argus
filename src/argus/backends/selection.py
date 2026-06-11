@@ -11,6 +11,9 @@ FAKE_BACKEND_BINARIES: dict[str, str] = {
     "fake-nonzero": "fake-nonzero-agent",
     "fake-stderr": "fake-stderr-agent",
     "fake-missing": "fake-missing-agent",
+    "fake-postgres": "fake-postgres-agent",
+    "fake-dynamodb": "fake-dynamodb-agent",
+    "fake-high-risk": "fake-high-risk-agent",
 }
 
 

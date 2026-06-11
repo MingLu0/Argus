@@ -26,7 +26,13 @@ from argus.conflicts import build_decision_gate, group_conflicts
 from argus.findings import ReviewResult, parse_reviewer_output
 from argus.models import ReviewerRecord, RunManifest, RunStatus, StepRecord, StepStatus, utc_now
 from argus.modes import reviewer_specs_for_backends
-from argus.prompts import render_reviewer_prompt, render_synthesis
+from argus.prompts import render_reviewer_prompt
+from argus.synthesis import (
+    render_next_actions_markdown,
+    render_open_questions_markdown,
+    render_recommendation_markdown,
+    render_synthesis_markdown,
+)
 
 
 async def run_discussion(
@@ -162,10 +168,6 @@ async def run_discussion(
     write_json(run_dir / "reviewers.json", reviewer_records)
 
     successful_reviews = len(review_outputs)
-    synthesis = render_synthesis(topic, review_outputs)
-    (run_dir / "synthesis.md").write_text(synthesis)
-    _write_run_summary(run_dir / "run-summary.md", manifest, reviewer_records, successful_reviews)
-    _write_recommendation(run_dir / "recommendation.md", synthesis, reviewer_records)
     write_json(run_dir / "findings.json", _consolidated_findings(parsed_reviews))
     conflicts = group_conflicts(parsed_reviews)
     decision_gate = build_decision_gate(
@@ -175,6 +177,32 @@ async def run_discussion(
         minimum_successful_reviewers=config.backend_policy.minimum_successful_reviewers,
     )
     write_json(run_dir / "conflicts.json", conflicts)
+    synthesis = render_synthesis_markdown(
+        topic=topic,
+        reviews=parsed_reviews,
+        raw_outputs=review_outputs,
+        conflicts=conflicts,
+    )
+    (run_dir / "synthesis.md").write_text(synthesis)
+    (run_dir / "recommendation.md").write_text(
+        render_recommendation_markdown(
+            reviewers=reviewer_records,
+            reviews=parsed_reviews,
+            conflicts=conflicts,
+            decision_gate=decision_gate,
+        )
+    )
+    (run_dir / "open-questions.md").write_text(
+        render_open_questions_markdown(reviews=parsed_reviews)
+    )
+    (run_dir / "next-actions.md").write_text(
+        render_next_actions_markdown(
+            reviews=parsed_reviews,
+            conflicts=conflicts,
+            decision_gate=decision_gate,
+        )
+    )
+    _write_run_summary(run_dir / "run-summary.md", manifest, reviewer_records, successful_reviews)
 
     if decision_gate.required:
         manifest.status = RunStatus.AWAITING_DECISION
@@ -222,23 +250,6 @@ def _write_run_summary(
             detail += f" ({reviewer.duration_ms}ms)"
         lines.append(detail)
     path.write_text("\n".join(lines) + "\n")
-
-
-def _write_recommendation(
-    path: Path,
-    synthesis: str,
-    reviewers: list[ReviewerRecord],
-) -> None:
-    lines = ["# Recommendation", "", "## Reviewer Status", ""]
-    if not reviewers:
-        lines.append("- No reviewers selected.")
-    for reviewer in reviewers:
-        detail = f"- `{reviewer.id}`: {reviewer.status}"
-        if reviewer.error:
-            detail += f" - {reviewer.error}"
-        lines.append(detail)
-    lines.extend(["", synthesis.strip(), ""])
-    path.write_text("\n".join(lines))
 
 
 def _consolidated_findings(parsed_reviews: list[ReviewResult]) -> list[dict]:

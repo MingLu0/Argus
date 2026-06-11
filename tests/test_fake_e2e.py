@@ -38,6 +38,9 @@ def test_run_with_fake_backends_creates_artifacts(tmp_path: Path) -> None:
     assert (run_dir / "reviewers.json").exists()
     assert (run_dir / "run-summary.md").exists()
     assert (run_dir / "synthesis.md").exists()
+    assert (run_dir / "open-questions.md").exists()
+    assert (run_dir / "next-actions.md").exists()
+    assert "Implementation readiness: ready" in (run_dir / "recommendation.md").read_text()
     assert len(list((run_dir / "reviews").glob("*.raw.md"))) == 3
     parsed_reviews = list((run_dir / "reviews").glob("*.parsed.json"))
     assert len(parsed_reviews) == 3

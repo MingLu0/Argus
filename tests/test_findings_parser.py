@@ -49,10 +49,10 @@ def test_parse_invalid_schema_returns_parse_error() -> None:
 
 def test_parse_json_followed_by_trailing_prose_succeeds() -> None:
     raw = (
-        'Here is the review:\n'
+        "Here is the review:\n"
         '{"recommendation":"approve","risk_level":"low",'
         '"findings":[{"severity":"info","action":"recommend","claim":"ok"}]} '
-        '// notes from the reviewer'
+        "// notes from the reviewer"
     )
 
     review = parse_reviewer_output(raw, "reviewer-a")
@@ -66,7 +66,7 @@ def test_parse_deduplicates_colliding_finding_ids() -> None:
         '{"recommendation":"revise","risk_level":"low","findings":['
         '{"id":"dup","severity":"info","action":"recommend","claim":"a"},'
         '{"id":"dup","severity":"info","action":"recommend","claim":"b"}'
-        ']}'
+        "]}"
     )
 
     review = parse_reviewer_output(raw, "reviewer-b")

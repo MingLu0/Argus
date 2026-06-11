@@ -21,6 +21,20 @@ def test_raw_review_lines_show_selected_reviewer_output(tmp_path: Path) -> None:
     assert "raw reviewer output" in lines
 
 
+def test_raw_review_lines_ignore_paths_outside_reviews_dir(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    reviews_dir = run_dir / "reviews"
+    reviews_dir.mkdir(parents=True)
+    (run_dir / "outside.raw.md").write_text("outside output\n")
+
+    lines = raw_review_lines(
+        run_dir,
+        {"positions": [{"reviewer_id": "../outside"}]},
+    )
+
+    assert lines == ["Raw review not found."]
+
+
 def test_format_conflicts_marks_selected_conflict_and_raw_review(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     reviews_dir = run_dir / "reviews"

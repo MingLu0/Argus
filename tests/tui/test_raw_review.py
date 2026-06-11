@@ -35,6 +35,22 @@ def test_raw_review_lines_ignore_paths_outside_reviews_dir(tmp_path: Path) -> No
     assert lines == ["Raw review not found."]
 
 
+def test_raw_review_lines_ignore_symlink_outside_reviews_dir(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    reviews_dir = run_dir / "reviews"
+    reviews_dir.mkdir(parents=True)
+    outside_path = run_dir / "outside.raw.md"
+    outside_path.write_text("outside output\n")
+    (reviews_dir / "reviewer-a.raw.md").symlink_to(outside_path)
+
+    lines = raw_review_lines(
+        run_dir,
+        {"positions": [{"reviewer_id": "reviewer-a"}]},
+    )
+
+    assert lines == ["Raw review not found."]
+
+
 def test_raw_review_lines_replaces_invalid_text(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     reviews_dir = run_dir / "reviews"

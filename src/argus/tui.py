@@ -369,12 +369,13 @@ def raw_review_lines(run_dir: Path, conflict: dict[str, Any] | None) -> list[str
         return ["No selected conflict."]
     reviewer_ids = [position.get("reviewer_id", "") for position in conflict.get("positions", [])]
     reviews_dir = run_dir / "reviews"
+    resolved_reviews_dir = reviews_dir.resolve(strict=False)
     lines: list[str] = []
     for reviewer_id in reviewer_ids:
         raw_path = reviews_dir / f"{reviewer_id}.raw.md"
-        if raw_path.resolve(strict=False).parent != reviews_dir.resolve(strict=False):
+        if raw_path.resolve(strict=False).parent != resolved_reviews_dir:
             continue
-        if not raw_path.exists():
+        if not raw_path.exists() or raw_path.is_symlink():
             continue
         lines.append(f"## {reviewer_id}")
         try:

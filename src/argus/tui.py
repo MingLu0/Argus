@@ -27,8 +27,15 @@ class ArgusTuiApp(App[None]):
 
     BINDINGS = [
         ("r", "refresh", "Refresh"),
-        ("a", "approve", "Approve"),
+        ("j", "next_conflict", "Next conflict"),
+        ("k", "previous_conflict", "Previous conflict"),
+        ("enter", "toggle_raw_review", "Raw review"),
+        ("a", "accept_recommendation", "Accept"),
+        ("c", "choose_option", "Choose option"),
+        ("m", "request_more_review", "More review"),
+        ("d", "defer", "Defer"),
         ("x", "abort", "Abort"),
+        ("h", "toggle_help", "Help"),
         ("q", "quit", "Quit"),
     ]
 
@@ -36,6 +43,10 @@ class ArgusTuiApp(App[None]):
         super().__init__()
         self.project_root = project_root
         self.run_id = run_id
+        self.selected_conflict_index = 0
+        self.show_raw_review = False
+        self.show_help = False
+        self.abort_confirmation_requested = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -55,18 +66,73 @@ class ArgusTuiApp(App[None]):
     def action_refresh(self) -> None:
         self.refresh_run()
 
-    def action_approve(self) -> None:
-        self._apply_gate_decision(DecisionAction.APPROVE, "Approved from TUI.")
+    def action_accept_recommendation(self) -> None:
+        self._apply_gate_decision(
+            DecisionAction.APPROVE,
+            "Accepted recommendation from TUI; accepted risk recorded.",
+        )
+
+    def action_choose_option(self) -> None:
+        state = self._current_state()
+        if state is None:
+            return
+        selected_conflict = selected_conflict_for(state.conflicts, self.selected_conflict_index)
+        choice = default_choice_for_conflict(selected_conflict)
+        self._apply_gate_decision(
+            DecisionAction.CHOOSE_OPTION,
+            "Chose option from TUI; accepted risk recorded.",
+            choice=choice,
+        )
+
+    def action_request_more_review(self) -> None:
+        self._apply_gate_decision(
+            DecisionAction.REQUEST_MORE_REVIEW,
+            "Follow-up review requested from TUI.",
+        )
+
+    def action_defer(self) -> None:
+        self._apply_gate_decision(DecisionAction.DEFER, "Decision deferred from TUI.")
 
     def action_abort(self) -> None:
-        self._apply_gate_decision(DecisionAction.ABORT, "Aborted from TUI.")
+        if not self.abort_confirmation_requested:
+            self.abort_confirmation_requested = True
+            self.refresh_run()
+            return
+        self._apply_gate_decision(DecisionAction.ABORT, "Aborted from TUI after confirmation.")
 
-    def _apply_gate_decision(self, action: DecisionAction, note: str) -> None:
+    def action_next_conflict(self) -> None:
+        state = self._current_state()
+        if state is None or not state.conflicts:
+            return
+        self.selected_conflict_index = min(
+            self.selected_conflict_index + 1,
+            len(state.conflicts) - 1,
+        )
+        self.refresh_run()
+
+    def action_previous_conflict(self) -> None:
+        if self.selected_conflict_index > 0:
+            self.selected_conflict_index -= 1
+            self.refresh_run()
+
+    def action_toggle_raw_review(self) -> None:
+        self.show_raw_review = not self.show_raw_review
+        self.refresh_run()
+
+    def action_toggle_help(self) -> None:
+        self.show_help = not self.show_help
+        self.refresh_run()
+
+    def _apply_gate_decision(
+        self,
+        action: DecisionAction,
+        note: str,
+        choice: str = "",
+    ) -> None:
         if not self.run_id:
             return
-        try:
-            state = load_tui_state(self.project_root, self.run_id)
-        except ValueError:
+        state = self._current_state()
+        if state is None:
             return
         if state.manifest.status != RunStatus.AWAITING_DECISION:
             return
@@ -75,8 +141,18 @@ class ArgusTuiApp(App[None]):
             run_id=self.run_id,
             action=action,
             note=note,
+            choice=choice,
         )
+        self.abort_confirmation_requested = False
         self.refresh_run()
+
+    def _current_state(self) -> TuiState | None:
+        if not self.run_id:
+            return None
+        try:
+            return load_tui_state(self.project_root, self.run_id)
+        except ValueError:
+            return None
 
     def refresh_run(self) -> None:
         try:
@@ -87,9 +163,26 @@ class ArgusTuiApp(App[None]):
             return
         self.query_one("#overview", Static).update(format_overview(state))
         self.query_one("#pipeline", Static).update(format_pipeline(state.manifest))
-        self.query_one("#conflicts", Static).update(format_conflicts(state.conflicts))
+        self.selected_conflict_index = clamp_conflict_index(
+            self.selected_conflict_index,
+            state.conflicts,
+        )
+        self.query_one("#conflicts", Static).update(
+            format_conflicts(
+                state.conflicts,
+                selected_index=self.selected_conflict_index,
+                show_raw_review=self.show_raw_review,
+                run_dir=state.run_dir,
+            )
+        )
         self.query_one("#log", Static).update(format_log_tail(state.run_dir))
-        self.query_one("#actions", Static).update(format_action_bar(state.manifest))
+        self.query_one("#actions", Static).update(
+            format_action_bar(
+                state.manifest,
+                abort_confirmation_requested=self.abort_confirmation_requested,
+                show_help=self.show_help,
+            )
+        )
 
 
 class TuiState:
@@ -171,25 +264,98 @@ def format_pipeline(manifest: RunManifest) -> str:
     return "\n".join(lines)
 
 
-def format_conflicts(conflicts: list[dict[str, Any]]) -> str:
+def format_conflicts(
+    conflicts: list[dict[str, Any]],
+    *,
+    selected_index: int = 0,
+    show_raw_review: bool = False,
+    run_dir: Path | None = None,
+) -> str:
     lines = ["Conflicts And Findings"]
     if not conflicts:
         lines.append("No conflicts recorded.")
         return "\n".join(lines)
-    for conflict in conflicts:
+    selected_index = clamp_conflict_index(selected_index, conflicts)
+    for index, conflict in enumerate(conflicts):
+        marker = ">" if index == selected_index else " "
         lines.append(
-            f"- {conflict['id']}: {conflict['status']} / {conflict['risk_level']} "
+            f"{marker} {conflict['id']}: {conflict['status']} / {conflict['risk_level']} "
             f"({conflict['affected_decision']})"
         )
         for position in conflict.get("positions", []):
             lines.append(f"  - {position['reviewer_id']}: {position['claim']}")
+    if show_raw_review and run_dir is not None:
+        lines.extend(["", "Raw Review"])
+        lines.extend(raw_review_lines(run_dir, selected_conflict_for(conflicts, selected_index)))
     return "\n".join(lines)
 
 
-def format_action_bar(manifest: RunManifest) -> str:
+def format_action_bar(
+    manifest: RunManifest,
+    *,
+    abort_confirmation_requested: bool = False,
+    show_help: bool = False,
+) -> str:
+    lines = ["Actions"]
     if manifest.status == RunStatus.AWAITING_DECISION:
-        return "Actions\n[a] approve  [x] abort  [r] refresh  [q] quit"
-    return "Actions\n[r] refresh  [q] quit"
+        lines.append("[a] accept  [c] choose  [m] more review  [d] defer  [x] abort  [h] help")
+        if abort_confirmation_requested:
+            lines.append("Press [x] again to confirm abort.")
+    else:
+        lines.append("[j/k] select  [enter] raw review  [r] refresh  [h] help  [q] quit")
+    if show_help:
+        lines.extend(
+            [
+                "",
+                "Help",
+                "j/k: move conflict selection",
+                "enter: toggle raw reviewer output",
+                "a: accept recommendation and accepted risk",
+                "c: choose the selected conflict's first option",
+                "m: request follow-up review",
+                "d: defer decision",
+                "x: abort, requires confirmation",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def clamp_conflict_index(index: int, conflicts: list[dict[str, Any]]) -> int:
+    if not conflicts:
+        return 0
+    return max(0, min(index, len(conflicts) - 1))
+
+
+def selected_conflict_for(
+    conflicts: list[dict[str, Any]],
+    selected_index: int,
+) -> dict[str, Any] | None:
+    if not conflicts:
+        return None
+    return conflicts[clamp_conflict_index(selected_index, conflicts)]
+
+
+def default_choice_for_conflict(conflict: dict[str, Any] | None) -> str:
+    if conflict is None:
+        return "selected recommendation"
+    positions = conflict.get("positions", [])
+    if positions:
+        return positions[0].get("claim", "selected recommendation")
+    return conflict.get("affected_decision", "selected recommendation")
+
+
+def raw_review_lines(run_dir: Path, conflict: dict[str, Any] | None) -> list[str]:
+    if conflict is None:
+        return ["No selected conflict."]
+    reviewer_ids = [position.get("reviewer_id", "") for position in conflict.get("positions", [])]
+    lines: list[str] = []
+    for reviewer_id in reviewer_ids:
+        raw_path = run_dir / "reviews" / f"{reviewer_id}.raw.md"
+        if not raw_path.exists():
+            continue
+        lines.append(f"## {reviewer_id}")
+        lines.extend(raw_path.read_text().strip().splitlines()[:12] or ["Empty raw review."])
+    return lines or ["Raw review not found."]
 
 
 def format_log_tail(run_dir: Path, limit: int = 12) -> str:

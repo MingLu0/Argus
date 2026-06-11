@@ -6,19 +6,23 @@ from collections import defaultdict
 from argus.conflicts.schema import Conflict, ConflictPosition, ConflictStatus
 from argus.findings.schema import Finding, FindingAction, ReviewResult, RiskLevel, Severity
 
+DEFAULT_AFFECTED_DECISION = "general"
+
 
 def group_conflicts(reviews: list[ReviewResult]) -> list[Conflict]:
-    findings_by_decision: dict[str, list[tuple[ReviewResult, Finding]]] = defaultdict(list)
+    findings_by_bucket: dict[str, list[tuple[ReviewResult, Finding]]] = defaultdict(list)
+    bucket_decision: dict[str, str] = {}
     for review in reviews:
         for finding in review.findings:
-            findings_by_decision[_normalize_decision(finding.affected_decision)].append(
-                (review, finding)
-            )
+            bucket, affected_decision = _decision_bucket(review, finding)
+            findings_by_bucket[bucket].append((review, finding))
+            bucket_decision.setdefault(bucket, affected_decision)
 
     conflicts: list[Conflict] = []
-    for affected_decision, entries in sorted(findings_by_decision.items()):
+    for bucket, entries in sorted(findings_by_bucket.items()):
         if not entries:
             continue
+        affected_decision = bucket_decision[bucket]
         positions = [
             ConflictPosition(
                 reviewer_id=review.reviewer_id,
@@ -35,7 +39,7 @@ def group_conflicts(reviews: list[ReviewResult]) -> list[Conflict]:
         risk_level = _risk_level(entries, status)
         conflicts.append(
             Conflict(
-                id=f"conflict-{_slugify(affected_decision)}",
+                id=f"conflict-{_slugify(bucket)}",
                 affected_decision=affected_decision,
                 risk_level=risk_level,
                 status=status,
@@ -46,9 +50,17 @@ def group_conflicts(reviews: list[ReviewResult]) -> list[Conflict]:
     return conflicts
 
 
+def _decision_bucket(review: ReviewResult, finding: Finding) -> tuple[str, str]:
+    normalized = _normalize_decision(finding.affected_decision)
+    if normalized == DEFAULT_AFFECTED_DECISION:
+        unique_key = f"{DEFAULT_AFFECTED_DECISION}::{review.reviewer_id}::{finding.id}"
+        return unique_key, DEFAULT_AFFECTED_DECISION
+    return normalized, normalized
+
+
 def _normalize_decision(value: str) -> str:
     normalized = " ".join(value.strip().lower().split())
-    return normalized or "general"
+    return normalized or DEFAULT_AFFECTED_DECISION
 
 
 def _conflict_status(positions: list[ConflictPosition]) -> ConflictStatus:
@@ -57,7 +69,6 @@ def _conflict_status(positions: list[ConflictPosition]) -> ConflictStatus:
     blocking_actions = {
         FindingAction.ASK_USER,
         FindingAction.BLOCK,
-        FindingAction.RECOMMEND,
     }
     actionable_count = sum(position.action in blocking_actions for position in positions)
     if reviewer_count > 1 and len(distinct_claims) > 1 and actionable_count > 0:

@@ -170,11 +170,19 @@ def reconstruct_run(project_root: Path, run_id: str) -> dict[str, Any]:
         run = connection.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
         if run is None:
             raise ValueError(f"run not found: {run_id}")
-        tables = ["steps", "backends", "reviewers", "findings", "conflicts", "artifacts", "events"]
+        table_ordering = {
+            "steps": "id",
+            "backends": "id",
+            "reviewers": "id",
+            "findings": "reviewer_id, id",
+            "conflicts": "id",
+            "artifacts": "path",
+            "events": "sequence",
+        }
         reconstructed: dict[str, Any] = {"run": dict(run)}
-        for table in tables:
+        for table, order_by in table_ordering.items():
             rows = connection.execute(
-                f"SELECT * FROM {table} WHERE run_id = ?", (run_id,)
+                f"SELECT * FROM {table} WHERE run_id = ? ORDER BY {order_by}", (run_id,)
             ).fetchall()
             reconstructed[table] = [dict(row) for row in rows]
         decision = connection.execute(

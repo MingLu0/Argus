@@ -25,6 +25,24 @@ def test_run_can_be_reconstructed_from_db_plus_artifacts(tmp_path: Path) -> None
     assert "decision-gate.yaml" in artifact_paths
 
 
+def test_run_reconstruction_orders_events_by_sequence(tmp_path: Path) -> None:
+    run_id = _create_conflicting_run(tmp_path)
+    with sqlite3.connect(database_path(tmp_path)) as connection:
+        connection.execute("DELETE FROM events WHERE run_id = ?", (run_id,))
+        connection.execute(
+            "INSERT INTO events(run_id, sequence, type, raw_json) VALUES (?, ?, ?, ?)",
+            (run_id, 2, "second", '{"type": "second"}'),
+        )
+        connection.execute(
+            "INSERT INTO events(run_id, sequence, type, raw_json) VALUES (?, ?, ?, ?)",
+            (run_id, 1, "first", '{"type": "first"}'),
+        )
+
+    reconstructed = reconstruct_run(tmp_path, run_id)
+
+    assert [event["sequence"] for event in reconstructed["events"]] == [1, 2]
+
+
 def test_decision_response_updates_sqlite_decision_state(tmp_path: Path) -> None:
     run_id = _create_conflicting_run(tmp_path)
     result = CliRunner().invoke(

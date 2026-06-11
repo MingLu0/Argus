@@ -152,3 +152,34 @@ def test_group_conflicts_does_not_flag_recommend_only_disagreement_as_unresolved
 
     assert len(conflicts) == 1
     assert conflicts[0].status == ConflictStatus.NON_CONFLICTING
+
+
+def test_group_conflicts_uniquifies_slug_collisions() -> None:
+    reviews = [
+        ReviewResult(
+            reviewer_id="reviewer-a",
+            findings=[
+                Finding(
+                    id="a",
+                    severity=Severity.INFO,
+                    action=FindingAction.RECOMMEND,
+                    claim="Use Postgres.",
+                    affected_decision="database choice",
+                ),
+                Finding(
+                    id="b",
+                    severity=Severity.INFO,
+                    action=FindingAction.RECOMMEND,
+                    claim="Use SQLite.",
+                    affected_decision="database-choice",
+                ),
+            ],
+        )
+    ]
+
+    conflicts = group_conflicts(reviews)
+
+    assert [conflict.id for conflict in conflicts] == [
+        "conflict-database-choice",
+        "conflict-database-choice-2",
+    ]

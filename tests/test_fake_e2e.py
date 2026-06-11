@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from time import perf_counter
 
@@ -38,6 +39,12 @@ def test_run_with_fake_backends_creates_artifacts(tmp_path: Path) -> None:
     assert (run_dir / "run-summary.md").exists()
     assert (run_dir / "synthesis.md").exists()
     assert len(list((run_dir / "reviews").glob("*.raw.md"))) == 3
+    parsed_reviews = list((run_dir / "reviews").glob("*.parsed.json"))
+    assert len(parsed_reviews) == 3
+    findings = json.loads((run_dir / "findings.json").read_text())
+    assert len(findings) == 3
+    assert findings[0]["id"]
+    assert findings[0]["reviewer_id"]
 
 
 def test_run_with_failed_fake_backend_creates_decision_gate(tmp_path: Path) -> None:
@@ -119,6 +126,7 @@ def test_run_with_stderr_fake_backend_captures_stderr(tmp_path: Path) -> None:
     stderr_logs = list((run_dir / "logs").glob("*.stderr.log"))
     assert stderr_logs
     assert any("fake warning on stderr" in path.read_text() for path in stderr_logs)
+    assert len(list((run_dir / "reviews").glob("*.parsed.json"))) == 2
 
 
 def test_run_with_repeated_delay_fake_backend_runs_in_parallel(tmp_path: Path) -> None:

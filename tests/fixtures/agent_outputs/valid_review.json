@@ -1,0 +1,16 @@
+{
+  "recommendation": "revise",
+  "risk_level": "medium",
+  "risk_rationale": "Database choice has migration implications.",
+  "findings": [
+    {
+      "severity": "warning",
+      "action": "ask-user",
+      "claim": "Postgres and DynamoDB imply different reporting tradeoffs.",
+      "evidence": ["billing reports require relational joins"],
+      "confidence": "high",
+      "affected_decision": "database"
+    }
+  ],
+  "open_questions": ["What reporting queries are required in v1?"]
+}

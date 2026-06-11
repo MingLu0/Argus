@@ -33,9 +33,12 @@ Each run writes to `.argus/runs/<run-id>/`:
 - `run.yaml` — run manifest with per-step status.
 - `backend-report.json` / `backend-report.md` — discovered backends and availability.
 - `reviewers.json` — per-reviewer record (command, exit code, duration, timed-out flag, artifacts).
-- `reviews/<reviewer-id>.raw.md`, `logs/<reviewer-id>.{stdout,stderr}.log`, `artifacts/<reviewer-id>.result.json` — raw reviewer output and execution detail.
+- `reviews/<reviewer-id>.raw.md`, `reviews/<reviewer-id>.parsed.json`, `logs/<reviewer-id>.{stdout,stderr}.log`, `artifacts/<reviewer-id>.result.json` — raw reviewer output, the structured `ReviewResult` parsed from it, and execution detail.
 - `synthesis.md`, `run-summary.md`, `recommendation.md` — synthesized output, per-reviewer status summary, and the final recommendation.
-- `findings.json`, `conflicts.json` — placeholders for structured findings (populated by later milestones).
+- `findings.json` — consolidated structured findings across reviewers; each entry carries a namespaced `id`, `reviewer_id`, `severity`, `action`, `claim`, `evidence`, `confidence`, and `affected_decision`.
+- `conflicts.json` — placeholder for cross-reviewer disagreement (populated by later milestones).
+
+Reviewers are prompted to emit a single JSON object (optionally inside a ```json fenced block). When the output cannot be parsed, the per-reviewer `.parsed.json` records a `parse_error` and `findings.json` simply omits that reviewer's findings.
 
 The first milestone uses file artifacts under `.argus/runs/`. SQLite and the TUI come later.
 

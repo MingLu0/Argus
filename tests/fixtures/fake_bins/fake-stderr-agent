@@ -2,7 +2,6 @@
 import sys
 
 print("fake warning on stderr", file=sys.stderr)
-print("# Fake Review With Stderr")
-print()
-print("## Recommendation")
-print("approve")
+print(
+    '{"recommendation":"approve","risk_level":"low","risk_rationale":"Stderr was non-blocking.","findings":[],"open_questions":[]}'
+)

@@ -20,7 +20,10 @@ class DecisionAction(StrEnum):
 
 
 def run_dir_for(project_root: Path, run_id: str) -> Path:
-    run_dir = project_root / ".argus" / "runs" / run_id
+    runs_dir = project_root / ".argus" / "runs"
+    run_dir = runs_dir / run_id
+    if run_dir.resolve(strict=False).parent != runs_dir.resolve(strict=False):
+        raise ValueError(f"invalid run id: {run_id}")
     if not run_dir.exists() or not run_dir.is_dir():
         raise ValueError(f"run not found: {run_id}")
     return run_dir

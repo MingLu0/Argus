@@ -120,6 +120,28 @@ def test_invalid_response_action_fails_without_mutating_run(tmp_path: Path) -> N
     assert "decision_action" not in manifest or manifest["decision_action"] is None
 
 
+def test_respond_rejects_non_leaf_run_id(tmp_path: Path) -> None:
+    _create_awaiting_run(tmp_path)
+    escaped_run_dir = tmp_path / ".argus" / "escaped-run"
+    escaped_run_dir.mkdir()
+    (escaped_run_dir / "run.yaml").write_text("id: escaped-run\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "respond",
+            "../escaped-run",
+            "--action",
+            "approve",
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert not (escaped_run_dir / "decision.md").exists()
+
+
 def _create_awaiting_run(project_root: Path) -> str:
     topic = project_root / "topic.md"
     topic.write_text("# Database choice\n\nShould we use Postgres or DynamoDB?\n")

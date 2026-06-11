@@ -9,7 +9,16 @@ from typer.testing import CliRunner
 
 from argus.cli import app
 from argus.executor.run import run_discussion
+from argus.findings.schema import (
+    Finding,
+    FindingAction,
+    Recommendation,
+    ReviewResult,
+    RiskLevel,
+    Severity,
+)
 from argus.followup import run_follow_up_review
+from argus.models import ReviewerRecord, StepStatus
 
 
 async def test_follow_up_review_creates_bounded_round_artifacts(tmp_path: Path) -> None:
@@ -67,6 +76,58 @@ async def test_follow_up_review_is_limited_to_one_round(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="already exists"):
         await run_follow_up_review(project_root=tmp_path, run_id=run_id)
+
+
+async def test_follow_up_gate_uses_revised_positions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = await _create_conflicting_run(tmp_path)
+
+    async def fake_follow_up_reviewers(**kwargs):
+        reviewers = kwargs["reviewers"]
+        records = [
+            ReviewerRecord(
+                id=f"follow-up-{reviewer.id}",
+                role=reviewer.role,
+                backend=reviewer.backend,
+                status=StepStatus.COMPLETED,
+            )
+            for reviewer in reviewers
+        ]
+        reviews = [
+            ReviewResult(
+                reviewer_id=record.id,
+                recommendation=Recommendation.APPROVE,
+                risk_level=RiskLevel.LOW,
+                findings=[
+                    Finding(
+                        id=f"{record.id}-database",
+                        severity=Severity.INFO,
+                        action=FindingAction.RECOMMEND,
+                        claim="Use Postgres after considering both reporting and scale.",
+                        affected_decision="database",
+                    )
+                ],
+            )
+            for record in records
+        ]
+        return records, reviews, {record.id: "raw" for record in records}
+
+    monkeypatch.setattr("argus.followup._run_follow_up_reviewers", fake_follow_up_reviewers)
+
+    manifest = await run_follow_up_review(project_root=tmp_path, run_id=run_id)
+
+    run_dir = tmp_path / ".argus" / "runs" / run_id
+    decision_gate = yaml.safe_load((run_dir / "decision-gate.yaml").read_text())
+    conflicts = json.loads((run_dir / "conflicts.json").read_text())
+    assert manifest.status == "completed"
+    assert decision_gate["required"] is False
+    assert conflicts[0]["status"] == "non_conflicting"
+    assert all(
+        position["reviewer_id"].startswith("follow-up-")
+        for position in conflicts[0]["positions"]
+    )
 
 
 def test_cli_request_more_review_runs_follow_up_round(tmp_path: Path) -> None:

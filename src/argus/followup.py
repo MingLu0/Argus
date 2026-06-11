@@ -79,18 +79,19 @@ async def run_follow_up_review(
     revised_conflicts = group_conflicts(parsed_reviews) if parsed_reviews else []
     write_json(round_two_dir / "conflicts.json", revised_conflicts)
 
+    active_reviews = parsed_reviews or original_reviews
+    active_conflicts = group_conflicts(active_reviews)
     combined_reviews = original_reviews + parsed_reviews
-    combined_conflicts = group_conflicts(combined_reviews)
     decision_gate = build_decision_gate(
-        reviews=combined_reviews,
-        conflicts=combined_conflicts,
+        reviews=active_reviews,
+        conflicts=active_conflicts,
         successful_reviewers=len(
             [record for record in follow_up_records if record.status == StepStatus.COMPLETED]
         ),
         minimum_successful_reviewers=1,
     )
     write_json(run_dir / "findings.json", _consolidated_findings(combined_reviews))
-    write_json(run_dir / "conflicts.json", combined_conflicts)
+    write_json(run_dir / "conflicts.json", active_conflicts)
     write_yaml(run_dir / "decision-gate.yaml", decision_gate)
     _write_follow_up_summary(
         round_two_dir / "summary.md",
@@ -103,7 +104,7 @@ async def run_follow_up_review(
         topic=topic,
         reviews=combined_reviews,
         raw_outputs=raw_outputs,
-        conflicts=combined_conflicts,
+        conflicts=active_conflicts,
         original_conflicts=conflicts,
         revised_conflicts=revised_conflicts,
     )
@@ -111,7 +112,7 @@ async def run_follow_up_review(
         render_recommendation_markdown(
             reviewers=reviewer_records + follow_up_records,
             reviews=combined_reviews,
-            conflicts=combined_conflicts,
+            conflicts=active_conflicts,
             decision_gate=decision_gate,
         )
     )
@@ -121,7 +122,7 @@ async def run_follow_up_review(
     (run_dir / "next-actions.md").write_text(
         render_next_actions_markdown(
             reviews=combined_reviews,
-            conflicts=combined_conflicts,
+            conflicts=active_conflicts,
             decision_gate=decision_gate,
         )
     )

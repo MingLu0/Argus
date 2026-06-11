@@ -21,6 +21,21 @@ def test_raw_review_lines_show_selected_reviewer_output(tmp_path: Path) -> None:
     assert "raw reviewer output" in lines
 
 
+def test_raw_review_lines_show_follow_up_reviewer_output(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    reviews_dir = run_dir / "rounds" / "round-2-conflict-review" / "reviews"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "follow-up-reviewer-a.raw.md").write_text("follow-up raw output\n")
+
+    lines = raw_review_lines(
+        run_dir,
+        {"positions": [{"reviewer_id": "follow-up-reviewer-a"}]},
+    )
+
+    assert "## follow-up-reviewer-a" in lines
+    assert "follow-up raw output" in lines
+
+
 def test_raw_review_lines_ignore_paths_outside_reviews_dir(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     reviews_dir = run_dir / "reviews"

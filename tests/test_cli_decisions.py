@@ -92,10 +92,35 @@ def test_respond_choose_option_records_choice(tmp_path: Path) -> None:
     run_dir = tmp_path / ".argus" / "runs" / run_id
     manifest = yaml.safe_load((run_dir / "run.yaml").read_text())
     decision = (run_dir / "decision.md").read_text()
-    assert manifest["status"] == "awaiting_decision"
+    assert manifest["status"] == "completed"
     assert manifest["decision_action"] == "choose-option"
     assert manifest["decision_choice"] == "Postgres"
     assert "Choice: Postgres" in decision
+
+
+def test_respond_choose_option_requires_choice_without_mutating_run(tmp_path: Path) -> None:
+    run_id = _create_awaiting_run(tmp_path)
+    run_dir = tmp_path / ".argus" / "runs" / run_id
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "respond",
+            run_id,
+            "--action",
+            "choose-option",
+            "--choice",
+            "   ",
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert not (run_dir / "decision.md").exists()
+    manifest = yaml.safe_load((run_dir / "run.yaml").read_text())
+    assert manifest["status"] == "awaiting_decision"
+    assert "decision_action" not in manifest or manifest["decision_action"] is None
 
 
 def test_invalid_response_action_fails_without_mutating_run(tmp_path: Path) -> None:

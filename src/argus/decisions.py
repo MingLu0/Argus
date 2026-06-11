@@ -44,6 +44,10 @@ def apply_decision(
 ) -> RunManifest:
     run_dir = run_dir_for(project_root, run_id)
     manifest = load_manifest(run_dir)
+    if action == DecisionAction.CHOOSE_OPTION:
+        choice = choice.strip()
+        if not choice:
+            raise ValueError("choose-option requires --choice")
     decided_at = utc_now()
 
     manifest.decision_action = action
@@ -83,7 +87,7 @@ def render_run_show(project_root: Path, run_id: str) -> str:
 
 
 def _status_for_action(action: DecisionAction) -> RunStatus:
-    if action == DecisionAction.APPROVE:
+    if action in {DecisionAction.APPROVE, DecisionAction.CHOOSE_OPTION}:
         return RunStatus.COMPLETED
     if action == DecisionAction.ABORT:
         return RunStatus.CANCELLED

@@ -2,7 +2,6 @@
 import time
 
 time.sleep(0.6)
-print("# Delayed Fake Review")
-print()
-print("## Recommendation")
-print("approve")
+print(
+    '{"recommendation":"approve","risk_level":"low","risk_rationale":"Delayed fake review passed.","findings":[],"open_questions":[]}'
+)

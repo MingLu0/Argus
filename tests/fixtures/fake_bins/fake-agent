@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
+import json
 import sys
 
 prompt = sys.stdin.read()
 role_line = next((line for line in prompt.splitlines() if line.startswith("Role:")), "Role: unknown")
 role = role_line.split(":", 1)[1].strip()
-print(f"# Fake Review: {role}")
-print()
-print("## Recommendation")
-print("approve")
-print()
-print("## Risk")
-print("low")
-print()
-print("## Major Concerns")
-print("- None in fake backend output.")
+print(
+    json.dumps(
+        {
+            "recommendation": "approve",
+            "risk_level": "low",
+            "risk_rationale": f"Fake {role} review found no blocking risk.",
+            "findings": [
+                {
+                    "severity": "info",
+                    "action": "no-op",
+                    "claim": f"Fake {role} review completed successfully.",
+                    "evidence": ["fake backend fixture"],
+                    "confidence": "high",
+                    "affected_decision": "test-fixture",
+                }
+            ],
+            "open_questions": [],
+        }
+    )
+)

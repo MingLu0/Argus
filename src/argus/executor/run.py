@@ -22,6 +22,7 @@ from argus.backends.selection import (
 )
 from argus.backends.subprocess import run_backend_command
 from argus.config import load_config
+from argus.findings import ReviewResult, parse_reviewer_output
 from argus.models import ReviewerRecord, RunManifest, RunStatus, StepRecord, StepStatus, utc_now
 from argus.modes import reviewer_specs_for_backends
 from argus.prompts import render_reviewer_prompt, render_synthesis
@@ -113,6 +114,7 @@ async def run_discussion(
     review_coroutines = (task for _, _, _, task in review_tasks)
     results = await asyncio.gather(*review_coroutines, return_exceptions=True)
     review_outputs: dict[str, str] = {}
+    parsed_reviews: list[ReviewResult] = []
     for (reviewer_id, step, reviewer_record, _), result in zip(review_tasks, results, strict=True):
         step.completed_at = utc_now()
         if isinstance(result, Exception):
@@ -127,6 +129,7 @@ async def run_discussion(
         reviewer_record.exit_code = result.exit_code
         reviewer_record.timed_out = result.timed_out
         raw_path = run_dir / "reviews" / f"{reviewer_id}.raw.md"
+        parsed_path = run_dir / "reviews" / f"{reviewer_id}.parsed.json"
         stdout_path = run_dir / "logs" / f"{reviewer_id}.stdout.log"
         stderr_path = run_dir / "logs" / f"{reviewer_id}.stderr.log"
         raw_path.write_text(result.stdout)
@@ -148,6 +151,11 @@ async def run_discussion(
             step.status = StepStatus.COMPLETED
             reviewer_record.status = StepStatus.COMPLETED
             review_outputs[reviewer_id] = result.stdout
+            parsed_review = parse_reviewer_output(result.stdout, reviewer_id)
+            parsed_reviews.append(parsed_review)
+            write_json(parsed_path, parsed_review)
+            step.artifacts.append(str(parsed_path.relative_to(run_dir)))
+            reviewer_record.artifacts.append(str(parsed_path.relative_to(run_dir)))
         append_event(run_dir, {"type": "step_completed", "step_id": step.id, "status": step.status})
 
     write_json(run_dir / "reviewers.json", reviewer_records)
@@ -157,7 +165,7 @@ async def run_discussion(
     (run_dir / "synthesis.md").write_text(synthesis)
     _write_run_summary(run_dir / "run-summary.md", manifest, reviewer_records, successful_reviews)
     _write_recommendation(run_dir / "recommendation.md", synthesis, reviewer_records)
-    write_json(run_dir / "findings.json", [])
+    write_json(run_dir / "findings.json", _consolidated_findings(parsed_reviews))
     write_json(run_dir / "conflicts.json", [])
 
     if successful_reviews >= config.backend_policy.minimum_successful_reviewers:
@@ -230,3 +238,13 @@ def _write_recommendation(
         lines.append(detail)
     lines.extend(["", synthesis.strip(), ""])
     path.write_text("\n".join(lines))
+
+
+def _consolidated_findings(parsed_reviews: list[ReviewResult]) -> list[dict]:
+    findings: list[dict] = []
+    for review in parsed_reviews:
+        for finding in review.findings:
+            encoded = finding.model_dump(mode="json")
+            encoded["reviewer_id"] = review.reviewer_id
+            findings.append(encoded)
+    return findings

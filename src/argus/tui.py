@@ -377,7 +377,12 @@ def raw_review_lines(run_dir: Path, conflict: dict[str, Any] | None) -> list[str
         if not raw_path.exists():
             continue
         lines.append(f"## {reviewer_id}")
-        lines.extend(raw_path.read_text().strip().splitlines()[:12] or ["Empty raw review."])
+        try:
+            raw_review = raw_path.read_text(errors="replace")
+        except OSError as exc:
+            lines.append(f"Unable to read raw review: {exc}")
+            continue
+        lines.extend(raw_review.strip().splitlines()[:12] or ["Empty raw review."])
     return lines or ["Raw review not found."]
 
 

@@ -35,6 +35,20 @@ def test_raw_review_lines_ignore_paths_outside_reviews_dir(tmp_path: Path) -> No
     assert lines == ["Raw review not found."]
 
 
+def test_raw_review_lines_replaces_invalid_text(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    reviews_dir = run_dir / "reviews"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "reviewer-a.raw.md").write_bytes(b"valid\xfftext\n")
+
+    lines = raw_review_lines(
+        run_dir,
+        {"positions": [{"reviewer_id": "reviewer-a"}]},
+    )
+
+    assert "valid\ufffdtext" in lines
+
+
 def test_format_conflicts_marks_selected_conflict_and_raw_review(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     reviews_dir = run_dir / "reviews"

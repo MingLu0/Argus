@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter
+from collections import defaultdict
 
 from argus.conflicts.schema import Conflict, ConflictStatus, DecisionGate
 from argus.findings.schema import Confidence, Finding, FindingAction, ReviewResult, RiskLevel
@@ -137,19 +137,23 @@ def render_next_actions_markdown(
 
 
 def _agreement_findings(reviews: list[ReviewResult]) -> list[str]:
-    decision_counts = Counter(
-        finding.affected_decision.strip().lower()
-        for review in reviews
-        for finding in review.findings
-        if finding.action in {FindingAction.NO_OP, FindingAction.RECOMMEND}
-    )
-    shared_decisions = {decision for decision, count in decision_counts.items() if count > 1}
+    agreeable_actions = {FindingAction.NO_OP, FindingAction.RECOMMEND}
+    decision_reviewers: dict[str, set[str]] = defaultdict(set)
+    for review in reviews:
+        for finding in review.findings:
+            if finding.action in agreeable_actions:
+                decision_reviewers[finding.affected_decision.strip().lower()].add(
+                    review.reviewer_id
+                )
+    shared_decisions = {
+        decision for decision, reviewers in decision_reviewers.items() if len(reviewers) > 1
+    }
     return [
         f"`{finding.affected_decision}`: {finding.claim}"
         for review in reviews
         for finding in review.findings
         if finding.affected_decision.strip().lower() in shared_decisions
-        and finding.action in {FindingAction.NO_OP, FindingAction.RECOMMEND}
+        and finding.action in agreeable_actions
     ]
 
 
@@ -169,7 +173,7 @@ def _risk_items(reviews: list[ReviewResult], confidence: Confidence | None = Non
     risky_actions = {FindingAction.ASK_USER, FindingAction.BLOCK}
     items: list[str] = []
     for review in reviews:
-        if review.risk_level != RiskLevel.LOW:
+        if confidence is None and review.risk_level != RiskLevel.LOW:
             items.append(
                 f"`{review.reviewer_id}` run risk {review.risk_level}: {review.risk_rationale}"
             )
@@ -187,7 +191,7 @@ def _speculative_risks(reviews: list[ReviewResult]) -> list[str]:
         for review in reviews
         for finding in review.findings
         if finding.confidence in {Confidence.LOW, Confidence.MEDIUM}
-        and finding.action in {FindingAction.ASK_USER, FindingAction.BLOCK, FindingAction.RECOMMEND}
+        and finding.action in {FindingAction.ASK_USER, FindingAction.BLOCK}
     ]
 
 

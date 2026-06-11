@@ -44,6 +44,9 @@ ADAPTERS: dict[str, BackendAdapter] = {
     "fake-nonzero": BackendAdapter(id="fake-nonzero", binary="fake-nonzero-agent"),
     "fake-stderr": BackendAdapter(id="fake-stderr", binary="fake-stderr-agent"),
     "fake-missing": BackendAdapter(id="fake-missing", binary="fake-missing-agent"),
+    "fake-postgres": BackendAdapter(id="fake-postgres", binary="fake-postgres-agent"),
+    "fake-dynamodb": BackendAdapter(id="fake-dynamodb", binary="fake-dynamodb-agent"),
+    "fake-high-risk": BackendAdapter(id="fake-high-risk", binary="fake-high-risk-agent"),
 }
 
 

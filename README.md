@@ -86,3 +86,11 @@ uv sync
 uv run pytest
 uv run ruff check .
 ```
+
+Real backend integration tests are opt-in because they invoke installed agent tools and may incur model/API cost or require local authentication:
+
+```bash
+ARGUS_REAL_BACKENDS=1 uv run pytest tests/integration_real
+```
+
+Without `ARGUS_REAL_BACKENDS=1`, tests marked `real_backend` are skipped during normal `uv run pytest`. When enabled, each real backend test skips cleanly if its binary is not installed on `PATH`; otherwise it runs Argus in a temporary project directory and leaves no artifacts in the repository.

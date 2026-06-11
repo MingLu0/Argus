@@ -13,6 +13,7 @@ argus run topic.md --mode tech-stack --backends auto
 argus status
 argus show <run-id>
 argus respond <run-id> --action approve
+argus tui <run-id>
 ```
 
 ### `argus run` options
@@ -34,6 +35,21 @@ Use `argus show <run-id>` to review the run summary, decision gate, and recommen
 
 Use `argus respond <run-id> --action <action>` to record the human decision. Supported actions are `approve`, `choose-option`, `revise`, `request-more-review`, `defer`, and `abort`. `choose-option` also requires `--choice <value>`; any response can include `--note <text>`. `approve` and `choose-option` complete the run, `abort` cancels it, and the other actions keep it in `awaiting_decision`.
 
+### Terminal UI
+
+Use `argus tui <run-id>` to launch a [Textual](https://textual.textualize.io/) terminal UI for a run. The `<run-id>` argument is optional; when omitted, the UI loads the latest run under `.argus/runs/`. The `--project-root` option points at the directory holding `.argus/` artifacts (default: current directory).
+
+The UI reconstructs run state from `.argus/argus.db` when the SQLite store is available and falls back to the file artifacts otherwise (shown as `Source: SQLite + artifacts` or `Source: artifacts` in the overview). It shows the run overview, the reviewer pipeline with per-step status and durations, grouped conflicts and reviewer positions, a tail of the reviewer `stderr` logs and `events.jsonl`, and an action bar.
+
+Key bindings:
+
+- `r` — refresh the run state.
+- `a` — approve the run (only when status is `awaiting_decision`).
+- `x` — abort the run (only when status is `awaiting_decision`).
+- `q` — quit.
+
+`a` and `x` apply the same decision gate as `argus respond`; they are ignored unless the run is `awaiting_decision`.
+
 ### Run artifacts
 
 Each run writes to `.argus/runs/<run-id>/`:
@@ -53,7 +69,7 @@ Argus also maintains `.argus/argus.db`, a SQLite state store initialized on dema
 
 Reviewers are prompted to emit a single JSON object (optionally inside a ```json fenced block). When the output cannot be parsed, the per-reviewer `.parsed.json` records a `parse_error` and `findings.json` simply omits that reviewer's findings.
 
-The file artifacts under `.argus/runs/` remain the human-readable record; SQLite mirrors the same run state for reconstruction and future UI/query workflows.
+The file artifacts under `.argus/runs/` remain the human-readable record; SQLite mirrors the same run state for reconstruction, the `argus tui` terminal UI, and future query workflows.
 
 ## Development
 

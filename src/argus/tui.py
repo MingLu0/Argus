@@ -101,6 +101,9 @@ class ArgusTuiApp(App[None]):
         self._apply_gate_decision(DecisionAction.DEFER, "Decision deferred from TUI.")
 
     def action_abort(self) -> None:
+        state = self._current_state()
+        if state is None or state.manifest.status != RunStatus.AWAITING_DECISION:
+            return
         if not self.abort_confirmation_requested:
             self.abort_confirmation_requested = True
             self.refresh_run()

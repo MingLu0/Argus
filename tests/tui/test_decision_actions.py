@@ -127,6 +127,20 @@ async def test_tui_abort_confirmation_reset_by_navigation(tmp_path: Path) -> Non
     assert manifest["status"] == "awaiting_decision"
 
 
+async def test_tui_abort_on_non_awaiting_run_does_not_arm_confirmation(tmp_path: Path) -> None:
+    run_id = await _create_conflicting_run(tmp_path)
+    run_dir = tmp_path / ".argus" / "runs" / run_id
+    manifest = yaml.safe_load((run_dir / "run.yaml").read_text())
+    manifest["status"] = "completed"
+    (run_dir / "run.yaml").write_text(yaml.safe_dump(manifest))
+
+    app_instance = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
+    async with app_instance.run_test() as pilot:
+        await pilot.press("x")
+        await pilot.pause()
+        assert app_instance.abort_confirmation_requested is False
+
+
 def test_action_bar_help_overlay_lists_keybindings() -> None:
     rendered = format_action_bar(_awaiting_manifest(), show_help=True)
 

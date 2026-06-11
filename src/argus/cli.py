@@ -8,6 +8,7 @@ import typer
 from argus import __version__
 from argus.backends.discovery import discover_backends
 from argus.config import load_config
+from argus.decisions import DecisionAction, apply_decision, render_run_show
 from argus.executor.run import run_discussion
 from argus.modes import supported_modes
 
@@ -89,6 +90,42 @@ def status(project_root: Path = typer.Option(Path.cwd(), "--project-root")) -> N
     latest = runs[-1]
     typer.echo(f"latest: {latest.name}")
     typer.echo(latest / "run.yaml")
+
+
+@app.command()
+def show(
+    run_id: str,
+    project_root: Path = typer.Option(Path.cwd(), "--project-root"),
+) -> None:
+    """Show a run summary and decision gate context."""
+    try:
+        typer.echo(render_run_show(project_root, run_id))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="run_id") from exc
+
+
+@app.command()
+def respond(
+    run_id: str,
+    action: DecisionAction = typer.Option(..., "--action"),
+    note: str = typer.Option("", "--note"),
+    choice: str = typer.Option("", "--choice"),
+    project_root: Path = typer.Option(Path.cwd(), "--project-root"),
+) -> None:
+    """Resolve or update a run decision gate."""
+    try:
+        manifest = apply_decision(
+            project_root=project_root,
+            run_id=run_id,
+            action=action,
+            note=note,
+            choice=choice,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="run_id") from exc
+    typer.echo(f"run: {manifest.id}")
+    typer.echo(f"decision: {manifest.decision_action}")
+    typer.echo(f"status: {manifest.status}")
 
 
 if __name__ == "__main__":

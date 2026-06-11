@@ -33,17 +33,16 @@ Topic:
 """
 
 
-def render_synthesis(topic: str, review_outputs: dict[str, str]) -> str:
-    sections = ["# Synthesis", "", "## Topic", "", topic.strip(), "", "## Reviews"]
-    for reviewer_id, output in review_outputs.items():
-        sections.extend(["", f"### {reviewer_id}", "", output.strip()])
-    sections.extend(
-        [
-            "",
-            "## Recommendation",
-            "",
-            "This MVP synthesis records reviewer outputs for human inspection. "
-            "Structured conflict grouping comes in a later phase.",
-        ]
-    )
-    return "\n".join(sections).strip() + "\n"
+def render_synthesis_prompt(*, topic: str, structured_reviews_json: str) -> str:
+    return f"""You are synthesizing Argus technical review outputs.
+
+Produce a concise recommendation that includes agreement, disagreement, risk,
+readiness, open questions, and next actions. Do not hide failed reviewers,
+uncertainty, or conflicts.
+
+Topic:
+{topic}
+
+Structured reviews:
+{structured_reviews_json}
+"""

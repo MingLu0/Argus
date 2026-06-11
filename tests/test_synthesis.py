@@ -3,6 +3,7 @@ from __future__ import annotations
 from argus.conflicts.schema import Conflict, ConflictStatus, DecisionGate
 from argus.findings.schema import Finding, FindingAction, ReviewResult, RiskLevel, Severity
 from argus.models import ReviewerRecord, StepStatus
+from argus.prompts import render_synthesis_prompt
 from argus.synthesis import (
     render_next_actions_markdown,
     render_open_questions_markdown,
@@ -129,3 +130,15 @@ def test_open_questions_and_next_actions_are_extracted() -> None:
 
     assert "What reporting queries are required?" in open_questions
     assert "Document the migration path" in next_actions
+
+
+def test_synthesis_prompt_template_names_required_sections() -> None:
+    prompt = render_synthesis_prompt(
+        topic="# Database choice",
+        structured_reviews_json='[{"reviewer_id":"fake"}]',
+    )
+
+    assert "agreement" in prompt
+    assert "disagreement" in prompt
+    assert "readiness" in prompt
+    assert "Structured reviews" in prompt

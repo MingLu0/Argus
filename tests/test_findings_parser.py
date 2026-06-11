@@ -15,7 +15,7 @@ def test_parse_valid_json_review_assigns_deterministic_finding_ids() -> None:
     assert review.parse_error is None
     assert review.recommendation == "revise"
     assert review.risk_level == RiskLevel.MEDIUM
-    assert review.findings[0].id == "claude-skeptic-1"
+    assert review.findings[0].id == "claude-skeptic-finding-1"
     assert review.findings[0].severity == Severity.WARNING
     assert review.findings[0].action == FindingAction.ASK_USER
 
@@ -27,7 +27,7 @@ def test_parse_fenced_json_review_preserves_existing_finding_id() -> None:
 
     assert review.parse_error is None
     assert review.risk_level == RiskLevel.LOW
-    assert review.findings[0].id == "custom-1"
+    assert review.findings[0].id == "opencode-repo-fit-custom-1"
 
 
 def test_parse_invalid_review_returns_parse_error_without_crashing() -> None:
@@ -45,3 +45,34 @@ def test_parse_invalid_schema_returns_parse_error() -> None:
 
     assert review.parse_error is not None
     assert review.findings == []
+
+
+def test_parse_json_followed_by_trailing_prose_succeeds() -> None:
+    raw = (
+        'Here is the review:\n'
+        '{"recommendation":"approve","risk_level":"low",'
+        '"findings":[{"severity":"info","action":"recommend","claim":"ok"}]} '
+        '// notes from the reviewer'
+    )
+
+    review = parse_reviewer_output(raw, "reviewer-a")
+
+    assert review.parse_error is None
+    assert review.findings[0].id == "reviewer-a-finding-1"
+
+
+def test_parse_deduplicates_colliding_finding_ids() -> None:
+    raw = (
+        '{"recommendation":"revise","risk_level":"low","findings":['
+        '{"id":"dup","severity":"info","action":"recommend","claim":"a"},'
+        '{"id":"dup","severity":"info","action":"recommend","claim":"b"}'
+        ']}'
+    )
+
+    review = parse_reviewer_output(raw, "reviewer-b")
+
+    assert review.parse_error is None
+    assert [finding.id for finding in review.findings] == [
+        "reviewer-b-dup",
+        "reviewer-b-dup-2",
+    ]

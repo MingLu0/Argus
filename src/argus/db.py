@@ -1,3 +1,5 @@
+"""SQLite state-store helpers for persisted Argus run artifacts."""
+
 from __future__ import annotations
 
 import json
@@ -127,10 +129,12 @@ CREATE TABLE IF NOT EXISTS events (
 
 
 def database_path(project_root: Path) -> Path:
+    """Return the project-local Argus SQLite database path."""
     return project_root / ".argus" / "argus.db"
 
 
 def initialize_database(project_root: Path) -> Path:
+    """Create the SQLite schema and record the current migration version."""
     path = database_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as connection:
@@ -144,6 +148,7 @@ def initialize_database(project_root: Path) -> Path:
 
 
 def persist_run_artifacts(project_root: Path, run_id: str) -> None:
+    """Upsert one run's file artifacts into the SQLite state store."""
     run_dir = project_root / ".argus" / "runs" / run_id
     manifest = RunManifest.model_validate(_read_yaml(run_dir / "run.yaml"))
     database = initialize_database(project_root)
@@ -164,6 +169,7 @@ def persist_run_artifacts(project_root: Path, run_id: str) -> None:
 
 
 def reconstruct_run(project_root: Path, run_id: str) -> dict[str, Any]:
+    """Return a run and its persisted child records ordered for reconstruction."""
     database = database_path(project_root)
     with sqlite3.connect(database) as connection:
         connection.row_factory = sqlite3.Row

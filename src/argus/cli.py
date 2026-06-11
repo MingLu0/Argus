@@ -11,6 +11,7 @@ from argus.config import load_config
 from argus.decisions import DecisionAction, apply_decision, render_run_show
 from argus.executor.run import run_discussion
 from argus.modes import supported_modes
+from argus.tui import ArgusTuiApp
 
 app = typer.Typer(help="Argus: many eyes on hard technical decisions.")
 
@@ -126,6 +127,15 @@ def respond(
     typer.echo(f"run: {manifest.id}")
     typer.echo(f"decision: {manifest.decision_action}")
     typer.echo(f"status: {manifest.status}")
+
+
+@app.command()
+def tui(
+    run_id: str | None = typer.Argument(None),
+    project_root: Path = typer.Option(Path.cwd(), "--project-root"),
+) -> None:
+    """Launch the terminal UI for the latest or selected run."""
+    ArgusTuiApp(project_root=project_root, run_id=run_id).run()
 
 
 if __name__ == "__main__":

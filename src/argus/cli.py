@@ -51,19 +51,20 @@ def run(
     topic: Path,
     mode: str = typer.Option("tech-stack", "--mode"),
     backends: str = typer.Option("auto", "--backends"),
+    timeout: float = typer.Option(30.0, "--timeout"),
     project_root: Path = typer.Option(Path.cwd(), "--project-root"),
 ) -> None:
     """Run a discussion against a topic file."""
     if mode not in supported_modes():
         supported = ", ".join(supported_modes())
         raise typer.BadParameter(f"unsupported mode {mode}; choose one of {supported}")
-    use_fake_backends = backends == "fake"
     manifest = asyncio.run(
         run_discussion(
             topic_path=topic,
             mode=mode,
             project_root=project_root,
-            use_fake_backends=use_fake_backends,
+            backend_selection=backends,
+            timeout_seconds=timeout,
         )
     )
     typer.echo(f"run: {manifest.id}")

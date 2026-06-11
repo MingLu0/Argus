@@ -125,8 +125,7 @@ async def test_follow_up_gate_uses_revised_positions(
     assert decision_gate["required"] is False
     assert conflicts[0]["status"] == "non_conflicting"
     assert all(
-        position["reviewer_id"].startswith("follow-up-")
-        for position in conflicts[0]["positions"]
+        position["reviewer_id"].startswith("follow-up-") for position in conflicts[0]["positions"]
     )
 
 

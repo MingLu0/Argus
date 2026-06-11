@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from argus.artifacts import write_yaml
+from argus.db import persist_run_artifacts
 from argus.models import RunManifest, RunStatus, utc_now
 
 
@@ -65,6 +66,7 @@ def apply_decision(
         decided_at=decided_at,
     )
     write_yaml(run_dir / "run.yaml", manifest)
+    persist_run_artifacts(project_root, run_id)
     return manifest
 
 

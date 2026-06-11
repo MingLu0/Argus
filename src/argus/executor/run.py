@@ -23,6 +23,7 @@ from argus.backends.selection import (
 from argus.backends.subprocess import run_backend_command
 from argus.config import load_config
 from argus.conflicts import build_decision_gate, group_conflicts
+from argus.db import persist_run_artifacts
 from argus.findings import ReviewResult, parse_reviewer_output
 from argus.models import ReviewerRecord, RunManifest, RunStatus, StepRecord, StepStatus, utc_now
 from argus.modes import reviewer_specs_for_backends
@@ -212,6 +213,7 @@ async def run_discussion(
     manifest.updated_at = utc_now()
     write_yaml(run_dir / "run.yaml", manifest)
     append_event(run_dir, {"type": "run_completed", "run_id": run_id, "status": manifest.status})
+    persist_run_artifacts(project_root, run_id)
     return manifest
 
 

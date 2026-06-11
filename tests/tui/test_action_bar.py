@@ -22,7 +22,10 @@ def test_action_bar_shows_gate_actions_for_awaiting_decision() -> None:
 
     rendered = format_action_bar(manifest)
 
-    assert "[a] approve" in rendered
+    assert "[a] accept" in rendered
+    assert "[c] choose" in rendered
+    assert "[m] more review" in rendered
+    assert "[d] defer" in rendered
     assert "[x] abort" in rendered
 
 
@@ -69,6 +72,7 @@ async def test_tui_can_approve_and_abort_decision_gate(tmp_path: Path) -> None:
     abort_app = ArgusTuiApp(project_root=tmp_path, run_id=abort_run_id)
     async with abort_app.run_test() as pilot:
         await pilot.press("x")
+        await pilot.press("x")
         await pilot.pause()
     abort_manifest = yaml.safe_load(
         (tmp_path / ".argus" / "runs" / abort_run_id / "run.yaml").read_text()
@@ -90,10 +94,26 @@ async def test_tui_ignores_decision_keys_after_run_completed(tmp_path: Path) -> 
     abort_app = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
     async with abort_app.run_test() as pilot:
         await pilot.press("x")
+        await pilot.press("x")
         await pilot.pause()
     completed_manifest = yaml.safe_load(manifest_path.read_text())
     assert completed_manifest["status"] == "completed"
     assert completed_manifest["decision_action"] == "approve"
+
+
+async def test_tui_abort_requires_confirmation(tmp_path: Path) -> None:
+    run_id = await _create_conflicting_run(tmp_path)
+    manifest_path = tmp_path / ".argus" / "runs" / run_id / "run.yaml"
+
+    app_instance = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
+    async with app_instance.run_test() as pilot:
+        await pilot.press("x")
+        await pilot.pause()
+        actions = app_instance.query_one("#actions").render()
+
+    manifest = yaml.safe_load(manifest_path.read_text())
+    assert manifest["status"] == "awaiting_decision"
+    assert "confirm abort" in str(actions)
 
 
 async def _create_conflicting_run(project_root: Path) -> str:

@@ -12,6 +12,7 @@ from textual.widgets import Footer, Header, Static
 
 from argus.db import database_path, reconstruct_run
 from argus.decisions import DecisionAction, apply_decision
+from argus.followup import run_follow_up_review
 from argus.models import RunManifest, RunStatus
 
 
@@ -89,12 +90,15 @@ class ArgusTuiApp(App[None]):
             choice=choice,
         )
 
-    def action_request_more_review(self) -> None:
+    async def action_request_more_review(self) -> None:
         self._cancel_abort_confirmation()
-        self._apply_gate_decision(
+        decision_applied = self._apply_gate_decision(
             DecisionAction.REQUEST_MORE_REVIEW,
             "Follow-up review requested from TUI.",
         )
+        if decision_applied and self.run_id is not None:
+            await run_follow_up_review(project_root=self.project_root, run_id=self.run_id)
+            self.refresh_run()
 
     def action_defer(self) -> None:
         self._cancel_abort_confirmation()
@@ -145,14 +149,14 @@ class ArgusTuiApp(App[None]):
         action: DecisionAction,
         note: str,
         choice: str = "",
-    ) -> None:
+    ) -> bool:
         if not self.run_id:
-            return
+            return False
         state = self._current_state()
         if state is None:
-            return
+            return False
         if state.manifest.status != RunStatus.AWAITING_DECISION:
-            return
+            return False
         apply_decision(
             project_root=self.project_root,
             run_id=self.run_id,
@@ -162,6 +166,7 @@ class ArgusTuiApp(App[None]):
         )
         self.abort_confirmation_requested = False
         self.refresh_run()
+        return True
 
     def _current_state(self) -> TuiState | None:
         if not self.run_id:
@@ -368,14 +373,16 @@ def raw_review_lines(run_dir: Path, conflict: dict[str, Any] | None) -> list[str
     if conflict is None:
         return ["No selected conflict."]
     reviewer_ids = [position.get("reviewer_id", "") for position in conflict.get("positions", [])]
-    reviews_dir = run_dir / "reviews"
-    resolved_reviews_dir = reviews_dir.resolve(strict=False)
+    reviews_dirs = [run_dir / "reviews"]
+    rounds_dir = run_dir / "rounds"
+    if rounds_dir.exists():
+        reviews_dirs.extend(
+            sorted(path / "reviews" for path in rounds_dir.iterdir() if path.is_dir())
+        )
     lines: list[str] = []
     for reviewer_id in reviewer_ids:
-        raw_path = reviews_dir / f"{reviewer_id}.raw.md"
-        if raw_path.resolve(strict=False).parent != resolved_reviews_dir:
-            continue
-        if not raw_path.exists() or raw_path.is_symlink():
+        raw_path = _raw_review_path(reviews_dirs, reviewer_id)
+        if raw_path is None:
             continue
         lines.append(f"## {reviewer_id}")
         try:
@@ -385,6 +392,18 @@ def raw_review_lines(run_dir: Path, conflict: dict[str, Any] | None) -> list[str
             continue
         lines.extend(raw_review.strip().splitlines()[:12] or ["Empty raw review."])
     return lines or ["Raw review not found."]
+
+
+def _raw_review_path(reviews_dirs: list[Path], reviewer_id: str) -> Path | None:
+    for reviews_dir in reviews_dirs:
+        resolved_reviews_dir = reviews_dir.resolve(strict=False)
+        raw_path = reviews_dir / f"{reviewer_id}.raw.md"
+        if not raw_path.exists() or raw_path.is_symlink():
+            continue
+        if raw_path.resolve(strict=False).parent != resolved_reviews_dir:
+            continue
+        return raw_path
+    return None
 
 
 def format_log_tail(run_dir: Path, limit: int = 12) -> str:

@@ -33,7 +33,7 @@ Reviewer roles are assigned to selected backends in the order they appear; dupli
 
 Use `argus show <run-id>` to review the run summary, decision gate, and recommendation for a completed or awaiting-decision run.
 
-Use `argus respond <run-id> --action <action>` to record the human decision. Supported actions are `approve`, `choose-option`, `revise`, `request-more-review`, `defer`, and `abort`. `choose-option` also requires `--choice <value>`; any response can include `--note <text>`. `approve` and `choose-option` complete the run, `abort` cancels it, and the other actions keep it in `awaiting_decision`.
+Use `argus respond <run-id> --action <action>` to record the human decision. Supported actions are `approve`, `choose-option`, `revise`, `request-more-review`, `defer`, and `abort`. `choose-option` also requires `--choice <value>`; any response can include `--note <text>`. `approve` and `choose-option` complete the run, `abort` cancels it, and `revise` and `defer` keep it in `awaiting_decision`. `request-more-review` runs one bounded follow-up pass for the reviewers in unresolved conflicts, then leaves the run in `awaiting_decision` if the revised decision gate still requires a human decision or completes it when the gate clears; the same run cannot start a second follow-up pass.
 
 ### Terminal UI
 
@@ -54,7 +54,7 @@ Key bindings:
 - `h` — toggle help.
 - `q` — quit.
 
-Decision keys apply the same decision gate as `argus respond`; they are ignored unless the run is `awaiting_decision`.
+Decision keys apply the same decision gate as `argus respond`; they are ignored unless the run is `awaiting_decision`. Pressing `m` runs the same bounded follow-up pass as `argus respond --action request-more-review` and refreshes the run when it finishes.
 
 ### Run artifacts
 
@@ -70,6 +70,8 @@ Each run writes to `.argus/runs/<run-id>/`:
 - `conflicts.json` — cross-reviewer disagreement grouped by `affected_decision`. Each conflict carries an `id` (e.g. `conflict-database`, with numeric suffixes for slug collisions), `affected_decision`, `risk_level` (`low`/`medium`/`high`), `status` (`unresolved` or `non_conflicting`), `rationale`, and one `position` per contributing finding (with `reviewer_id`, `finding_id`, `claim`, `action`, `severity`, `confidence`, and `evidence`). Findings with the default `affected_decision` are not bucketed across reviewers, and reviewer disagreement is only marked `unresolved` when at least one position carries an `ask-user` or `block` action.
 - `decision-gate.yaml` — written only when human decision is required. Records `required`, the aggregated `risk_level`, the deduplicated `reasons` that triggered the gate, the `conflict_ids` and `finding_ids` referenced by those reasons, and the `successful_reviewers` / `minimum_successful_reviewers` counts. A gate is required when there are too few successful reviewers, any reviewer reported `risk_level: high` or a parse error, any finding has an `ask-user` or `block` action, or any conflict is unresolved or high-risk. When the gate is required, `run.yaml` status is set to `awaiting_decision`; otherwise the run completes.
 - `decision.md` — written by `argus respond` or TUI decision keys with the selected action, decision timestamp, optional choice, and optional note.
+- `rounds/round-1/` — created by `request-more-review` as a snapshot of the original reviews, logs, artifacts, findings, conflicts, decision gate, synthesis, and recommendation before follow-up reviewers run.
+- `rounds/round-2-conflict-review/` — created by `request-more-review` with the follow-up prompt, reviewer records, raw and parsed follow-up reviews, logs, execution artifacts, revised findings, revised conflicts, and a follow-up summary. The top-level `findings.json`, `conflicts.json`, `decision-gate.yaml`, `synthesis.md`, `recommendation.md`, `open-questions.md`, and `next-actions.md` are then rewritten from the combined original and follow-up reviews.
 
 Argus also maintains `.argus/argus.db`, a SQLite state store initialized on demand. Each completed `argus run` and each CLI or TUI decision upserts the run manifest plus steps, backend availability, reviewer records, findings, conflicts, decisions, artifacts, and events into tables tracked by `schema_migrations`.
 

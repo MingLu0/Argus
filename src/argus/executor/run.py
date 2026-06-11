@@ -18,6 +18,7 @@ from argus.backends.selection import (
     fake_backend_statuses,
     resolve_backend_selection,
     selection_uses_fake_backends,
+    selection_uses_real_backends,
 )
 from argus.backends.subprocess import run_backend_command
 from argus.config import load_config
@@ -54,11 +55,11 @@ async def run_discussion(
     append_event(run_dir, {"type": "run_started", "run_id": run_id})
 
     config = load_config(project_root)
-    statuses = (
-        fake_backend_statuses(project_root)
-        if selection_uses_fake_backends(backend_selection)
-        else discover_backends(config.backends)
-    )
+    statuses: list = []
+    if selection_uses_fake_backends(backend_selection):
+        statuses.extend(fake_backend_statuses(project_root))
+    if selection_uses_real_backends(backend_selection):
+        statuses.extend(discover_backends(config.backends))
     selected_backends = resolve_backend_selection(backend_selection, statuses)
     write_json(run_dir / "backend-report.json", statuses)
     _write_backend_report_markdown(run_dir / "backend-report.md", statuses)
@@ -108,8 +109,6 @@ async def run_discussion(
         reviewer_record.status = StepStatus.RUNNING
         step.started_at = utc_now()
         append_event(run_dir, {"type": "step_started", "step_id": step.id})
-
-    write_json(run_dir / "reviewers.json", reviewer_records)
 
     review_coroutines = (task for _, _, _, task in review_tasks)
     results = await asyncio.gather(*review_coroutines, return_exceptions=True)

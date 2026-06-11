@@ -34,7 +34,10 @@ def resolve_backend_selection(selection: str, statuses: list[BackendStatus]) -> 
     requested_ids = [item.strip() for item in normalized_selection.split(",") if item.strip()]
     if not requested_ids:
         return []
-    return [by_id[backend_id] for backend_id in requested_ids if backend_id in by_id]
+    unknown_ids = [backend_id for backend_id in requested_ids if backend_id not in by_id]
+    if unknown_ids:
+        raise ValueError(f"unknown backend(s): {', '.join(unknown_ids)}")
+    return [by_id[backend_id] for backend_id in requested_ids]
 
 
 def fake_backend_statuses(_: Path) -> list[BackendStatus]:
@@ -56,3 +59,13 @@ def fake_backend_statuses(_: Path) -> list[BackendStatus]:
 
 def selection_uses_fake_backends(selection: str) -> bool:
     return any(item.strip().startswith("fake") for item in selection.split(","))
+
+
+def selection_uses_real_backends(selection: str) -> bool:
+    normalized = selection.strip()
+    if normalized in {"auto", "auto-pool"}:
+        return True
+    if normalized == "fake":
+        return False
+    items = [item.strip() for item in normalized.split(",") if item.strip()]
+    return any(not item.startswith("fake") for item in items)

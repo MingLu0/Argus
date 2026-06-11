@@ -147,6 +147,28 @@ def test_run_with_repeated_delay_fake_backend_runs_in_parallel(tmp_path: Path) -
     assert len(list((run_dir / "reviews").glob("*.raw.md"))) == 3
 
 
+def test_run_with_unknown_backend_raises_bad_parameter(tmp_path: Path) -> None:
+    topic = tmp_path / "topic.md"
+    topic.write_text("# Typo\n\nShould a typo fail loudly?\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(topic),
+            "--mode",
+            "tech-stack",
+            "--backends",
+            "cluade",
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "cluade" in result.output
+
+
 def test_run_with_missing_fake_backend_discloses_skipped_reviewer(tmp_path: Path) -> None:
     topic = tmp_path / "topic.md"
     topic.write_text("# Missing backend\n\nShould missing backends be disclosed?\n")
@@ -173,6 +195,39 @@ def test_run_with_missing_fake_backend_discloses_skipped_reviewer(tmp_path: Path
     assert "skipped" in summary
     assert "fake-missing" in recommendation
     assert "skipped" in recommendation
+
+
+def test_run_with_mixed_fake_and_real_backends(tmp_path: Path, monkeypatch) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake_claude = bin_dir / "claude"
+    fake_claude.write_text("#!/usr/bin/env python3\nprint('# mixed claude')\n")
+    fake_claude.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    topic = tmp_path / "topic.md"
+    topic.write_text("# Mixed selection\n\nShould fake and real backends coexist?\n")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(topic),
+            "--mode",
+            "architecture",
+            "--backends",
+            "fake-success,claude",
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_dir = next((tmp_path / ".argus" / "runs").iterdir())
+    reviewers = (run_dir / "reviewers.json").read_text()
+    assert "fake-success" in reviewers
+    assert "claude" in reviewers
+    assert len(list((run_dir / "reviews").glob("*.raw.md"))) == 2
 
 
 def test_run_auto_pool_uses_available_cli_named_backends(tmp_path: Path, monkeypatch) -> None:

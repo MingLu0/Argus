@@ -58,15 +58,18 @@ def run(
     if mode not in supported_modes():
         supported = ", ".join(supported_modes())
         raise typer.BadParameter(f"unsupported mode {mode}; choose one of {supported}")
-    manifest = asyncio.run(
-        run_discussion(
-            topic_path=topic,
-            mode=mode,
-            project_root=project_root,
-            backend_selection=backends,
-            timeout_seconds=timeout,
+    try:
+        manifest = asyncio.run(
+            run_discussion(
+                topic_path=topic,
+                mode=mode,
+                project_root=project_root,
+                backend_selection=backends,
+                timeout_seconds=timeout,
+            )
         )
-    )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--backends") from exc
     typer.echo(f"run: {manifest.id}")
     typer.echo(f"status: {manifest.status}")
     typer.echo(f"artifacts: {project_root / '.argus' / 'runs' / manifest.id}")

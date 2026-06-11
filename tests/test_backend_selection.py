@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from argus.backends.selection import resolve_backend_selection
+import pytest
+
+from argus.backends.selection import (
+    resolve_backend_selection,
+    selection_uses_fake_backends,
+    selection_uses_real_backends,
+)
 from argus.models import BackendStatus
 
 
@@ -53,3 +59,27 @@ def test_fake_selection_expands_to_three_success_reviewers() -> None:
     selected = resolve_backend_selection("fake", statuses)
 
     assert [backend.id for backend in selected] == ["fake-success"] * 3
+
+
+def test_explicit_selection_raises_on_unknown_backend_id() -> None:
+    statuses = [
+        BackendStatus(id="claude", binary="claude", available=True, path="/bin/claude"),
+    ]
+
+    with pytest.raises(ValueError, match="cluade"):
+        resolve_backend_selection("cluade", statuses)
+
+
+def test_selection_uses_real_backends_for_mixed_selection() -> None:
+    assert selection_uses_fake_backends("fake-success,claude") is True
+    assert selection_uses_real_backends("fake-success,claude") is True
+
+
+def test_selection_uses_real_backends_false_for_pure_fake() -> None:
+    assert selection_uses_real_backends("fake") is False
+    assert selection_uses_real_backends("fake-success,fake-delay") is False
+
+
+def test_selection_uses_real_backends_true_for_auto() -> None:
+    assert selection_uses_real_backends("auto") is True
+    assert selection_uses_real_backends("auto-pool") is True

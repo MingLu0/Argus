@@ -85,6 +85,10 @@ class RunManifest(BaseModel):
     created_at: datetime
     updated_at: datetime
     steps: list[StepRecord] = Field(default_factory=list)
+    decision_action: str | None = None
+    decision_note: str = ""
+    decision_choice: str = ""
+    decided_at: datetime | None = None
 
 
 class ReviewerSpec(BaseModel):

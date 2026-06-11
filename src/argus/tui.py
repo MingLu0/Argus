@@ -64,19 +64,24 @@ class ArgusTuiApp(App[None]):
         self.refresh_run()
 
     def action_refresh(self) -> None:
+        self._cancel_abort_confirmation()
         self.refresh_run()
 
     def action_accept_recommendation(self) -> None:
+        self._cancel_abort_confirmation()
         self._apply_gate_decision(
             DecisionAction.APPROVE,
             "Accepted recommendation from TUI; accepted risk recorded.",
         )
 
     def action_choose_option(self) -> None:
+        self._cancel_abort_confirmation()
         state = self._current_state()
         if state is None:
             return
         selected_conflict = selected_conflict_for(state.conflicts, self.selected_conflict_index)
+        if selected_conflict is None:
+            return
         choice = default_choice_for_conflict(selected_conflict)
         self._apply_gate_decision(
             DecisionAction.CHOOSE_OPTION,
@@ -85,12 +90,14 @@ class ArgusTuiApp(App[None]):
         )
 
     def action_request_more_review(self) -> None:
+        self._cancel_abort_confirmation()
         self._apply_gate_decision(
             DecisionAction.REQUEST_MORE_REVIEW,
             "Follow-up review requested from TUI.",
         )
 
     def action_defer(self) -> None:
+        self._cancel_abort_confirmation()
         self._apply_gate_decision(DecisionAction.DEFER, "Decision deferred from TUI.")
 
     def action_abort(self) -> None:
@@ -101,6 +108,7 @@ class ArgusTuiApp(App[None]):
         self._apply_gate_decision(DecisionAction.ABORT, "Aborted from TUI after confirmation.")
 
     def action_next_conflict(self) -> None:
+        self._cancel_abort_confirmation()
         state = self._current_state()
         if state is None or not state.conflicts:
             return
@@ -111,17 +119,23 @@ class ArgusTuiApp(App[None]):
         self.refresh_run()
 
     def action_previous_conflict(self) -> None:
+        self._cancel_abort_confirmation()
         if self.selected_conflict_index > 0:
             self.selected_conflict_index -= 1
-            self.refresh_run()
+        self.refresh_run()
 
     def action_toggle_raw_review(self) -> None:
+        self._cancel_abort_confirmation()
         self.show_raw_review = not self.show_raw_review
         self.refresh_run()
 
     def action_toggle_help(self) -> None:
+        self._cancel_abort_confirmation()
         self.show_help = not self.show_help
         self.refresh_run()
+
+    def _cancel_abort_confirmation(self) -> None:
+        self.abort_confirmation_requested = False
 
     def _apply_gate_decision(
         self,
@@ -340,8 +354,11 @@ def default_choice_for_conflict(conflict: dict[str, Any] | None) -> str:
         return "selected recommendation"
     positions = conflict.get("positions", [])
     if positions:
-        return positions[0].get("claim", "selected recommendation")
-    return conflict.get("affected_decision", "selected recommendation")
+        claim = (positions[0].get("claim") or "").strip()
+        if claim:
+            return claim
+    affected_decision = (conflict.get("affected_decision") or "").strip()
+    return affected_decision or "selected recommendation"
 
 
 def raw_review_lines(run_dir: Path, conflict: dict[str, Any] | None) -> list[str]:

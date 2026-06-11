@@ -77,6 +77,56 @@ def test_default_choice_uses_first_conflict_position() -> None:
     assert choice == "Use Postgres."
 
 
+def test_default_choice_falls_back_when_first_claim_blank() -> None:
+    choice = default_choice_for_conflict(
+        {
+            "affected_decision": "database",
+            "positions": [{"claim": "   "}, {"claim": "Use DynamoDB."}],
+        }
+    )
+
+    assert choice == "database"
+
+
+def test_default_choice_falls_back_to_default_when_everything_blank() -> None:
+    choice = default_choice_for_conflict({"affected_decision": "", "positions": []})
+
+    assert choice == "selected recommendation"
+
+
+async def test_tui_choose_option_no_conflicts_is_noop(tmp_path: Path) -> None:
+    run_id = await _create_conflicting_run(tmp_path)
+    run_dir = tmp_path / ".argus" / "runs" / run_id
+    (run_dir / "conflicts.json").write_text("[]")
+
+    app_instance = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
+    async with app_instance.run_test() as pilot:
+        await pilot.press("c")
+        await pilot.pause()
+
+    manifest = yaml.safe_load((run_dir / "run.yaml").read_text())
+    assert manifest["status"] == "awaiting_decision"
+    assert manifest["decision_action"] is None
+
+
+async def test_tui_abort_confirmation_reset_by_navigation(tmp_path: Path) -> None:
+    run_id = await _create_conflicting_run(tmp_path)
+
+    app_instance = ArgusTuiApp(project_root=tmp_path, run_id=run_id)
+    async with app_instance.run_test() as pilot:
+        await pilot.press("x")
+        await pilot.pause()
+        assert app_instance.abort_confirmation_requested is True
+        await pilot.press("j")
+        await pilot.pause()
+        assert app_instance.abort_confirmation_requested is False
+        await pilot.press("x")
+        await pilot.pause()
+
+    manifest = yaml.safe_load((tmp_path / ".argus" / "runs" / run_id / "run.yaml").read_text())
+    assert manifest["status"] == "awaiting_decision"
+
+
 def test_action_bar_help_overlay_lists_keybindings() -> None:
     rendered = format_action_bar(_awaiting_manifest(), show_help=True)
 

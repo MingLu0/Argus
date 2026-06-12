@@ -115,7 +115,7 @@ Without `ARGUS_REAL_BACKENDS=1`, tests marked `real_backend` are skipped during 
 
 ## Release
 
-Release builds are handled by GitHub Actions. Pushing a `v*` tag that matches the version in `pyproject.toml` builds the wheel and source distribution, uploads them as workflow artifacts, and attaches them to a GitHub release:
+Release builds are handled by GitHub Actions. Pushing a `v*` tag that matches the version in `pyproject.toml` builds the wheel and source distribution, uploads the generated `dist/*.whl` and `dist/*.tar.gz` files as workflow artifacts, and attaches those files to a GitHub release:
 
 ```bash
 git tag v0.1.0

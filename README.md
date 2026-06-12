@@ -23,6 +23,7 @@ uv run argus doctor
 ## MVP Commands
 
 ```bash
+argus version
 argus doctor
 argus agents
 argus run topic.md --mode tech-stack --backends auto
@@ -114,7 +115,7 @@ Without `ARGUS_REAL_BACKENDS=1`, tests marked `real_backend` are skipped during 
 
 ## Release
 
-Release builds are handled by GitHub Actions. Pushing a `v*` tag builds the wheel and source distribution, uploads them as workflow artifacts, and attaches them to a GitHub release:
+Release builds are handled by GitHub Actions. Pushing a `v*` tag that matches the version in `pyproject.toml` builds the wheel and source distribution, uploads them as workflow artifacts, and attaches them to a GitHub release:
 
 ```bash
 git tag v0.1.0
@@ -122,3 +123,7 @@ git push origin v0.1.0
 ```
 
 The release workflow can also be run manually from GitHub Actions to validate packaging without creating a tagged release.
+
+## License
+
+Argus is licensed under the MIT License. See [LICENSE](LICENSE).

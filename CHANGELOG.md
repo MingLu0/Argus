@@ -10,3 +10,4 @@ All notable changes to Argus are documented here.
 - CLI and TUI decision workflows, including bounded follow-up review rounds.
 - SQLite state mirror for run reconstruction.
 - Opt-in real backend integration tests.
+- MIT-licensed package metadata, version command, and GitHub Actions CI/release workflows.

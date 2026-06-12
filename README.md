@@ -4,6 +4,22 @@ Argus is a local multi-agent technical deliberation tool: many eyes on hard tech
 
 It coordinates locally installed agent backends such as `claude`, `opencode`, and `codex`, runs independent reviewer roles in parallel, captures structured artifacts, groups disagreement, and produces a recommendation with explicit human decision gates for high-risk cases.
 
+## Install
+
+From a local checkout:
+
+```bash
+uv tool install .
+argus version
+```
+
+For development without installing the tool globally:
+
+```bash
+uv sync
+uv run argus doctor
+```
+
 ## MVP Commands
 
 ```bash
@@ -85,6 +101,7 @@ The file artifacts under `.argus/runs/` remain the human-readable record; SQLite
 uv sync
 uv run pytest
 uv run ruff check .
+uv run ruff format --check .
 ```
 
 Real backend integration tests are opt-in because they invoke installed agent tools and may incur model/API cost or require local authentication:
@@ -94,3 +111,14 @@ ARGUS_REAL_BACKENDS=1 uv run pytest tests/integration_real
 ```
 
 Without `ARGUS_REAL_BACKENDS=1`, tests marked `real_backend` are skipped during normal `uv run pytest`. When enabled, each real backend test skips cleanly if its binary is not installed on `PATH`; otherwise it runs Argus in a temporary project directory and leaves no artifacts in the repository.
+
+## Release
+
+Release builds are handled by GitHub Actions. Pushing a `v*` tag builds the wheel and source distribution, uploads them as workflow artifacts, and attaches them to a GitHub release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow can also be run manually from GitHub Actions to validate packaging without creating a tagged release.

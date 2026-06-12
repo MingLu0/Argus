@@ -2,7 +2,12 @@
 
 All notable changes to Argus are documented here.
 
-## 0.1.0 - Unreleased
+## 0.1.1
+
+- Distribution renamed to `argus-review` for PyPI compatibility.
+- Published to PyPI with trusted publishing from GitHub Actions.
+
+## 0.1.0
 
 - Initial local multi-agent deliberation CLI.
 - Backend discovery and fanout for Claude, opencode, Codex, and deterministic fake fixtures.

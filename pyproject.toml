@@ -1,11 +1,11 @@
 [project]
-name = "argus"
-version = "0.1.0"
+name = "argus-review"
+version = "0.1.1"
 description = "Local multi-agent technical deliberation tool."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
-authors = [{ name = "Ming Lu" }]
+authors = [{ name = "MingLuo" }]
 keywords = ["agents", "cli", "code-review", "decision-support", "tui"]
 classifiers = [
     "Development Status :: 3 - Alpha",

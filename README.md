@@ -6,6 +6,13 @@ It coordinates locally installed agent backends such as `claude`, `opencode`, an
 
 ## Install
 
+From PyPI:
+
+```bash
+uv tool install argus-review
+argus version
+```
+
 From a local checkout:
 
 ```bash
@@ -118,8 +125,8 @@ Without `ARGUS_REAL_BACKENDS=1`, tests marked `real_backend` are skipped during 
 Release builds are handled by GitHub Actions. Pushing a `v*` tag that matches the version in `pyproject.toml` builds the wheel and source distribution, uploads the generated `dist/*.whl` and `dist/*.tar.gz` files as workflow artifacts, and attaches those files to a GitHub release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 The release workflow can also be run manually from GitHub Actions to validate packaging without creating a tagged release.

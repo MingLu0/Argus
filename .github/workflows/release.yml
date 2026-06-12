@@ -26,6 +26,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify release tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as pyproject_file:
+              package_version = tomllib.load(pyproject_file)["project"]["version"]
+
+          tag_version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          if tag_version != package_version:
+              raise SystemExit(
+                  f"Release tag v{tag_version} does not match package version {package_version}"
+              )
+          PY
+
       - name: Build distributions
         run: uv build
 

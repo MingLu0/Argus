@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from argus.backends.discovery import discover_backends
 from argus.executor.run import run_discussion
+from argus.findings.schema import ReviewResult
 from argus.models import RunStatus
 
 
@@ -35,3 +37,9 @@ async def run_real_backend_smoke(project_root: Path, backend_id: str) -> None:
     assert (run_dir / "backend-report.json").exists()
     assert (run_dir / "recommendation.md").exists()
     assert list((run_dir / "logs").glob("*.stderr.log"))
+
+    parsed_review_paths = list((run_dir / "reviews").glob("*.parsed.json"))
+    assert parsed_review_paths
+    for parsed_review_path in parsed_review_paths:
+        parsed_review = ReviewResult.model_validate(json.loads(parsed_review_path.read_text()))
+        assert parsed_review.parse_error is None

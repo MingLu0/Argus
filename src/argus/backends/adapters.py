@@ -23,7 +23,7 @@ class OpenCodeAdapter(BackendAdapter):
     def build_invocation(self, *, path: str, prompt: str) -> BackendInvocation:
         return BackendInvocation(
             backend_id=self.id,
-            command=[path, "run", "--print", prompt],
+            command=[path, "run", prompt],
             input_text="",
         )
 

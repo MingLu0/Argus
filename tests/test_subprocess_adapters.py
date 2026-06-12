@@ -10,12 +10,12 @@ def test_claude_adapter_uses_print_mode() -> None:
     assert invocation.input_text == ""
 
 
-def test_opencode_adapter_uses_run_print_command() -> None:
+def test_opencode_adapter_uses_run_command() -> None:
     invocation = adapter_for("opencode").build_invocation(
         path="/bin/opencode", prompt="review this"
     )
 
-    assert invocation.command == ["/bin/opencode", "run", "--print", "review this"]
+    assert invocation.command == ["/bin/opencode", "run", "review this"]
     assert invocation.input_text == ""
 
 
